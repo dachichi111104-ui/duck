@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Generated files
+data/cache/
+data/logs/
+data/snapshots/
+snapshots/
+
+# Uploaded / temporary videos
+uploads/
+videos/
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# AI model weights
+models/*.pt
+models/*.onnx
+models/*.pth
+
+# Generated reports
+reports/generated/
+
+# Build
+build/
+dist/
+*.spec
+
+# Jupyter
+.ipynb_checkpoints/
