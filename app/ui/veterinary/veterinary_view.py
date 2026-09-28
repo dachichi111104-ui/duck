@@ -52,7 +52,11 @@ class VeterinaryView(QWidget):
         self.status_filter.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.status_filter)
 
-        toolbar.addStretch()
+        edit_btn = QPushButton("Sửa bệnh án")
+        edit_btn.setIcon(get_icon("fa5s.edit", color="#2E7D32"))
+        edit_btn.setObjectName("SecondaryButton")
+        edit_btn.clicked.connect(self._edit_selected)
+        toolbar.addWidget(edit_btn)
 
         add_btn = QPushButton("Thêm Bệnh án mới")
         add_btn.setIcon(get_icon("fa5s.plus", color="#FFFFFF"))
@@ -72,14 +76,6 @@ class VeterinaryView(QWidget):
         self.table = build_table(COLUMNS)
         layout.addWidget(self.table)
 
-        actions = QHBoxLayout()
-        edit_btn = QPushButton("Sửa bệnh án")
-        edit_btn.setObjectName("SecondaryButton")
-        edit_btn.clicked.connect(self._edit_selected)
-        actions.addWidget(edit_btn)
-        actions.addStretch()
-        layout.addLayout(actions)
-
         self.empty_state = EmptyState("Chưa có hồ sơ bệnh án nào", "+ Thêm Bệnh án mới", self._add_record)
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
@@ -93,7 +89,7 @@ class VeterinaryView(QWidget):
                 item.widget().deleteLater()
 
         total = len(self._all_records)
-        theo_doi = sum(1 for r in self._all_records if r.status == VetRecordStatus.THEO_DOI)
+        theo_doi = sum(1 for r in self._all_records if r.status in (VetRecordStatus.THEO_DOI, "UNDER_MONITORING"))
         dieu_tri = sum(1 for r in self._all_records if r.status == VetRecordStatus.DANG_DIEU_TRI)
         da_khoi = sum(1 for r in self._all_records if r.status == VetRecordStatus.DA_KHOI)
 
@@ -112,13 +108,14 @@ class VeterinaryView(QWidget):
         status = self.status_filter.currentData()
         filtered = [
             r for r in self._all_records
-            if (not flock_id or r.flock_id == flock_id) and (not status or r.status == status)
+            if (not flock_id or r.flock_id == flock_id) and
+               (not status or r.status == status or (status == VetRecordStatus.THEO_DOI and r.status in (VetRecordStatus.THEO_DOI, "UNDER_MONITORING")))
         ]
         self.table.setRowCount(len(filtered))
 
         for row, r in enumerate(filtered):
             source_label = "AI Analysis" if r.source == "AI_ANALYSIS" else "Thủ công"
-            st_text = VetRecordStatus.LABELS_VI.get(r.status, r.status)
+            st_text = VetRecordStatus.LABELS_VI.get(r.status, "Theo dõi" if r.status == "UNDER_MONITORING" else r.status)
 
             set_row(self.table, row, [
                 r.diagnosis_date.isoformat(),

@@ -111,7 +111,7 @@ class AIAnalysisService:
                         symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
                         treatment_plan="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
                         veterinarian_name=actor or "Hệ thống AI tự động",
-                        status=VetRecordStatus.UNDER_MONITORING,
+                        status=VetRecordStatus.THEO_DOI,
                         notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
                     )
                     session.add(vet_rec)

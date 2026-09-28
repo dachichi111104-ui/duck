@@ -352,9 +352,10 @@ class AIMonitoringView(QWidget):
         if not self._selected_video_path:
             return
         self.analyze_btn.setEnabled(False)
-        self.analyze_btn.setText("⏳ Đang phân tích AI...")
+        self.analyze_btn.setIcon(get_icon("fa5s.sync", color="#FFFFFF"))
+        self.analyze_btn.setText("Đang phân tích AI...")
         self.result_label.setText(
-            "<b>⏳ ĐANG THỰC THI PHÂN TÍCH AI...</b><br>"
+            "<b>ĐANG THỰC THI PHÂN TÍCH AI...</b><br>"
             "Mô hình YOLOv8 Lật Ngửa đang nhận diện khung hình & chẩn đoán hành vi.<br>"
             "<i>Vui lòng chờ trong giây lát...</i>"
         )
@@ -482,12 +483,19 @@ class AIMonitoringView(QWidget):
         dlg.exec()
 
     def _open_veterinary_form(self) -> None:
-        QMessageBox.information(
-            self,
-            "Tạo Hồ sơ Bệnh án",
-            "Hệ thống đã tự động khởi tạo bản thảo Hồ sơ Bệnh án Thú y từ kết quả chẩn đoán AI!\n"
-            "Bạn có thể xem và duyệt tại mục 'Hồ sơ bệnh án'."
-        )
+        from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
+        dlg = VeterinaryRecordDialog(self.current_user, parent=self)
+        if self._selected_video_path:
+            dlg.symptoms_input.setPlainText(f"Phát hiện cảnh báo AI từ tệp {Path(self._selected_video_path).name}: Nghi ngờ vịt Lật ngửa (Té ngã / Nằm ngửa).")
+            dlg.diagnosis_input.setPlainText("Nghi dịch bệnh / Té ngã (Lật Ngửa)")
+            dlg.treatment_input.setPlainText("Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm bổ sung vắc xin.")
+            dlg.veterinarian_input.setText(self.current_user.full_name or self.current_user.username)
+        if dlg.exec():
+            QMessageBox.information(
+                self,
+                "Tạo Hồ sơ Bệnh án",
+                "Đã lưu Hồ sơ Bệnh án Thú y thành công! Bạn có thể xem chi tiết tại danh mục 'Hồ sơ bệnh án'."
+            )
 
     # --- History tab -----------------------------------------------------
     def _refresh_history(self) -> None:

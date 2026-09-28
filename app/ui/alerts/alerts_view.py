@@ -36,9 +36,9 @@ class AlertsView(QWidget):
 
         self.severity_combo = QComboBox()
         self.severity_combo.addItem("Tất cả mức độ", None)
-        self.severity_combo.addItem("🔴 Nguy cơ cao (RED)", AlertSeverity.RED)
-        self.severity_combo.addItem("🟠 Cảnh báo (ORANGE)", AlertSeverity.ORANGE)
-        self.severity_combo.addItem("🟢 Thông tin (GREEN)", AlertSeverity.GREEN)
+        self.severity_combo.addItem("Nguy cơ cao (RED)", AlertSeverity.RED)
+        self.severity_combo.addItem("Cảnh báo (ORANGE)", AlertSeverity.ORANGE)
+        self.severity_combo.addItem("Thông tin (GREEN)", AlertSeverity.GREEN)
         self.severity_combo.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.severity_combo)
 
@@ -51,7 +51,8 @@ class AlertsView(QWidget):
 
         toolbar.addStretch()
 
-        mark_btn = QPushButton("✓ Đánh dấu đã đọc tất cả")
+        mark_btn = QPushButton("Đánh dấu đã đọc tất cả")
+        mark_btn.setIcon(get_icon("fa5s.check", color="#2E7D32"))
         mark_btn.setObjectName("SecondaryButton")
         mark_btn.clicked.connect(self._mark_all_read)
         toolbar.addWidget(mark_btn)

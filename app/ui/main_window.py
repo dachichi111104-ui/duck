@@ -289,10 +289,16 @@ class MainWindow(QMainWindow):
         self.notif_btn.clicked.connect(self._show_notification_menu)
         layout.addWidget(self.notif_btn)
 
-        user_label = QLabel(f"👤 {self.current_user.full_name}")
+        user_box = QHBoxLayout()
+        user_box.setSpacing(4)
+        user_icon_lbl = QLabel()
+        user_icon_lbl.setPixmap(get_icon("fa5s.user", color="#26332A").pixmap(14, 14))
+        user_box.addWidget(user_icon_lbl)
+        user_label = QLabel(self.current_user.full_name)
         user_label.setFixedHeight(26)
-        user_label.setStyleSheet("font-weight: 600; color: #26332A; font-size: 11px; padding-left: 4px;")
-        layout.addWidget(user_label)
+        user_label.setStyleSheet("font-weight: 600; color: #26332A; font-size: 11px;")
+        user_box.addWidget(user_label)
+        layout.addLayout(user_box)
 
         return topbar
 
