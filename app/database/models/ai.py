@@ -23,6 +23,9 @@ class AIAnalysisSession(Base):
     status: Mapped[str] = mapped_column(String(30), default=AISessionStatus.PENDING)
     model_version: Mapped[str] = mapped_column(String(50), default="PLACEHOLDER")
     notes: Mapped[str | None] = mapped_column(String(500))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     detections: Mapped[list["AIDetectionResult"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
@@ -54,6 +57,9 @@ class AIDetectionResult(Base):
     behavior_label: Mapped[str | None] = mapped_column(String(100))
     health_status: Mapped[str | None] = mapped_column(String(20))  # NORMAL | SUSPECTED
     notes: Mapped[str | None] = mapped_column(String(255))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     session: Mapped["AIAnalysisSession"] = relationship(back_populates="detections")
 
@@ -72,6 +78,9 @@ class AIAlert(Base):
     timestamp: Mapped[float | None] = mapped_column(Float)
     description: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default="UNREAD")
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     session: Mapped["AIAnalysisSession"] = relationship(back_populates="alerts")
 

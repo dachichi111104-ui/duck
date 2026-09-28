@@ -5,9 +5,12 @@ import datetime as dt
 from PyQt6.QtCore import QDate
 from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QComboBox, QDateEdit, QSpinBox,
-    QTextEdit, QDialogButtonBox, QMessageBox,
+    QTextEdit, QDialogButtonBox, QMessageBox, QLabel,
 )
+from sqlalchemy import select, func
 
+from app.database.connection import session_scope
+from app.database.models import Flock
 from app.services.flock_service import FlockService
 from app.services.barn_service import BarnService
 from app.utils.validators import ValidationError
@@ -26,7 +29,8 @@ class FlockFormDialog(QDialog):
 
         form = QFormLayout(self)
 
-        self.code_input = QLineEdit()
+        self.code_label = QLabel()
+        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
         self.name_input = QLineEdit()
         self.breed_input = QLineEdit()
         self.barn_combo = QComboBox()
@@ -44,7 +48,7 @@ class FlockFormDialog(QDialog):
         self.notes_input = QTextEdit()
         self.notes_input.setMaximumHeight(70)
 
-        form.addRow("Mã đàn *", self.code_input)
+        form.addRow("Mã đàn *", self.code_label)
         form.addRow("Tên đàn *", self.name_input)
         form.addRow("Giống", self.breed_input)
         form.addRow("Chuồng", self.barn_combo)
@@ -60,10 +64,10 @@ class FlockFormDialog(QDialog):
         form.addRow(buttons)
 
         if flock:
-            self.code_input.setText(flock.flock_code)
-            self.code_input.setEnabled(False)
+            self.code_label.setText(flock.flock_code)
             self.name_input.setText(flock.name)
             self.breed_input.setText(flock.breed or "")
+            self.initial_count_input.setValue(flock.initial_count)
             self.initial_count_input.setEnabled(False)
             self.start_date_input.setEnabled(False)
             self.notes_input.setPlainText(flock.notes or "")
@@ -71,6 +75,10 @@ class FlockFormDialog(QDialog):
                 idx = self.barn_combo.findData(flock.barn_id)
                 if idx >= 0:
                     self.barn_combo.setCurrentIndex(idx)
+        else:
+            with session_scope() as session:
+                max_id = session.execute(select(func.max(Flock.id))).scalar() or 0
+            self.code_label.setText(f"FL{max_id + 1:03d}")
 
     def _save(self) -> None:
         try:
@@ -83,7 +91,7 @@ class FlockFormDialog(QDialog):
             else:
                 self._flock_service.create_flock(
                     self.current_user.username,
-                    flock_code=self.code_input.text(),
+                    flock_code=self.code_label.text(),
                     name=self.name_input.text(),
                     barn_id=self.barn_combo.currentData(),
                     breed=self.breed_input.text(),

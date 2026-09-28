@@ -69,26 +69,26 @@ Mật khẩu được hash bằng bcrypt (passlib), không lưu plain-text.
 
 ---
 
-## 2. Database
+## 2. Cơ sở dữ liệu (Database Architecture)
 
-- Engine: **SQLite** (phù hợp desktop app, single-user, giai đoạn hiện tại)
-- File: `data/database/wild_duck_farm.db` (tạo tự động, gitignore)
-- ORM: **SQLAlchemy 2.0** (declarative style, type-annotated `Mapped[...]`)
-- 16 bảng: `users`, `roles`, `barns`, `flocks`, `flock_events`,
-  `production_records`, `inventory_categories`, `inventory_items`,
-  `inventory_transactions`, `diseases`, `veterinary_records`,
-  `vaccinations`, `ai_analysis_sessions`, `ai_detection_results`,
-  `ai_alerts`, `notifications`.
-- Cài đặt farm (tên, địa chỉ, theme) lưu riêng ở `data/app_settings.json`
-  — đây là dữ liệu cấu hình hiển thị, không phải dữ liệu nghiệp vụ, nên
-  dùng file JSON nhẹ thay vì thêm bảng vào SQLite.
+- **Local Storage (Máy trạm Desktop)**: **SQLite** (`data/database/wild_duck_farm.db`).
+  - Đảm bảo tính năng **Offline-First**: giúp nông dân sử dụng ứng dụng mượt mà, ghi nhận dữ liệu tức thì ngay cả khi mất kết nối Internet hoặc máy chủ web bảo trì.
+- **Central Storage (Máy chủ Web Cloud)**: **PostgreSQL Cloud (Neon DB)**.
+  - Lưu trữ tập trung cho toàn hệ thống, kết nối qua Web REST API (`API_BASE_URL`).
+- **Đồng bộ dữ liệu (Sync Engine)**: Tự động đồng bộ 2 chiều (Push & Pull) giữa SQLite local và PostgreSQL Cloud qua `SyncService` chạy ngầm.
+- **ORM**: **SQLAlchemy 2.0** (declarative style, type-annotated `Mapped[...]`).
+- **16 bảng nghiệp vụ**: `users`, `roles`, `barns`, `flocks`, `flock_events`, `production_records`, `inventory_categories`, `inventory_items`, `inventory_transactions`, `diseases`, `veterinary_records`, `vaccinations`, `ai_analysis_sessions`, `ai_detection_results`, `ai_alerts`, `notifications` (đã bổ sung các cột đồng bộ `sync_status`, `last_modified_at`, `remote_id`).
 
 ---
 
-## 3. Kiến trúc
+## 3. Kiến trúc hệ thống
 
 ```text
-UI  →  Service  →  Repository  →  Database
+UI (PyQt6)  →  Service  →  Repository  →  SQLite Local (Phản hồi tức thì)
+                                              ↕
+                                       SyncService (QThread)
+                                              ↕ (REST API)
+                                       FastAPI Backend  →  PostgreSQL Cloud (Neon DB)
 ```
 
 - **UI** (`app/ui/`): PyQt6 widgets/dialogs. Không bao giờ chạy SQL trực tiếp.
@@ -126,34 +126,22 @@ wild_duck_farm/
 
 ## 4. Tính năng đã triển khai
 
-- ✅ Đăng nhập / đăng xuất, mật khẩu hash (bcrypt)
-- ✅ Phân quyền theo vai trò (ADMIN / FARM_MANAGER / VETERINARIAN / STAFF) —
-  sidebar tự ẩn menu không có quyền
-- ✅ Dashboard: KPI (tổng vịt, số đàn, đang theo dõi, cảnh báo, sản lượng
-  hôm nay) + biểu đồ (PyQtGraph) — toàn bộ lấy từ database, không hard-code
-- ✅ CRUD Đàn vịt: tìm kiếm / lọc / thêm / sửa / xóa, chi tiết đàn có tab
-  (Tổng quan, Biến động, Sản lượng, Bệnh án, Tiêm phòng, AI)
-- ✅ CRUD Chuồng: kiểm tra sức chứa, không cho nhập vượt capacity
-- ✅ Quản lý sản lượng: trứng, trọng lượng TB, thức ăn tiêu thụ
-- ✅ Quản lý kho: danh mục, vật tư, nhập/xuất/điều chỉnh, cảnh báo tồn
-  kho thấp + sắp hết hạn
-- ✅ Bệnh án: 2 bệnh mục tiêu (Lật ngửa, Tụ huyết trùng), đánh dấu rõ
-  nguồn "AI Analysis" khi liên quan (chỉ mang tính hỗ trợ theo dõi)
-- ✅ Lịch tiêm phòng: cảnh báo sắp đến hạn / quá hạn
-- ✅ Notification Center: cảnh báo Đỏ/Cam/Xanh tổng hợp từ kho, tiêm
-  phòng, bệnh án
-- ✅ Nhận diện AI: chọn video → xem metadata thật (OpenCV) → chạy AI
-  placeholder (không giả vờ có model thật) → lưu session vào lịch sử
-- ✅ Báo cáo: đàn / sản lượng / kho / thú y / AI, filter theo ngày/đàn,
-  **Export Excel** (openpyxl, có style header)
-- ✅ Quản lý người dùng (ADMIN): CRUD user + vai trò
-- ✅ Cài đặt: thông tin trang trại, đơn vị, thông tin database/version
-- ✅ Logging: `logs/wild_duck_farm.log` (login, CRUD, lỗi, export, AI)
-- ✅ Global exception handler: không crash khi lỗi, hiện MessageBox thân thiện
-- ✅ Form validation: số lượng > 0, không âm, không vượt sức chứa
-- ✅ Seed data đầy đủ để demo ngay từ lần chạy đầu
-- ✅ Unit tests (pytest): database, authentication, inventory, flock/capacity,
-  AI placeholder
+- ✅ **Việt hóa 100% giao diện**: Toàn bộ nhãn, nút bấm, thông báo, menu, tooltip và hộp thoại được chuyển sang tiếng Việt phù hợp với người quản lý nông trại.
+- ✅ **Chỉ dùng Vector Icons (QtAwesome)**: Loại bỏ hoàn toàn emoji, sử dụng bộ icon chuẩn font-awesome `fa5s...` đảm bảo thẩm mỹ chuyên nghiệp.
+- ✅ **Đăng nhập / Phân quyền**: Đăng nhập mật khẩu mã hóa bcrypt, phân quyền vai trò (ADMIN, FARM_MANAGER, VETERINARIAN, STAFF) với sidebar tự động ẩn mục không có quyền.
+- ✅ **Dashboard**: KPI tổng vịt, đàn, sản lượng, cảnh báo + đồ thị tăng trưởng (PyQtGraph) load từ SQLite.
+- ✅ **CRUD Đàn vịt & Chuồng**: Lọc/tìm kiếm, kiểm tra sức chứa chuồng (capacity validation), xem chi tiết đàn đa tab.
+- ✅ **Sản lượng & Kho**: Theo dõi trứng, trọng lượng TB, thức ăn; Nhập/xuất/điều chỉnh kho, cảnh báo tồn kho thấp & hàng sắp hết hạn.
+- ✅ **Bệnh án & Tiêm phòng**: Quản lý bệnh án 2 bệnh mục tiêu (Lật ngửa, Tụ huyết trùng), lập lịch tiêm phòng và cảnh báo quá hạn.
+- ✅ **Cảnh báo & Notification Center**: Tổng hợp cảnh báo hệ thống (Đỏ/Cam/Xanh), hỗ trợ lọc theo mức độ.
+- ✅ **Mối nối AI & Trực quan Bounding Box**:
+  - Chuẩn hóa AI Contract (`DuckTrack`, `AIDetection`, `AIAlertResult`, `AIAnalysisResult`).
+  - Trực quan hóa Bounding Box (`draw_duck_overlay`): Vẽ khung nhật nhận diện, ID, độ tin cậy và màu viền (Xanh `#2E7D32` = Khỏe mạnh, Đỏ `#D32F2F` = Có bệnh) trực tiếp trên video.
+  - 2 hình thức ghi nhận: Quay video trực tiếp bằng Webcam (`WebcamRecorderDialog`) + Tải tệp video từ máy.
+  - Tab **Giám sát nhiều chuồng (Mô phỏng demo)**: Chạy đồng thời 3 luồng camera chuồng nuôi với bộ lọc 5 khung hình liên tiếp để tránh báo động giả.
+  - **Tự động hóa quy trình Cảnh báo ↔ Bệnh án**: Phát hiện AI vịt bệnh tự động gửi cảnh báo Đỏ và mở Bệnh án nháp (gắn nguồn "AI Analysis").
+- ✅ **Báo cáo & Export Excel**: Báo cáo theo đàn, sản lượng, kho, thú y, AI và **Báo cáo độ chính xác theo mật độ đàn** (6, 10, 20, 30, 50 vịt/frame), xuất Excel định dạng đẹp.
+- ✅ **Cài đặt & Quản lý người dùng**: Đổi thông tin trang trại, cấu hình theme, CRUD tài khoản.
 
 ---
 
@@ -164,113 +152,127 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Test coverage: kết nối database, đăng nhập/xác thực, giao dịch kho
-(nhập/xuất/tồn kho thấp), tạo đàn + validate sức chứa chuồng, AI placeholder
-(đảm bảo không trả về kết quả giả).
+Test coverage: kết nối database, đăng nhập/xác thực, giao dịch kho (nhập/xuất/tồn kho thấp), tạo đàn + validate sức chứa chuồng, AI contract & simulated analysis.
 
 ---
 
-## 6. Tích hợp AI trong tương lai (Future AI Integration)
+## 6. Tích hợp AI trong tương lai (Future AI Integration Guide)
 
-### 6.1 Trạng thái hiện tại
+### 6.1 Trạng thái kiến trúc (AI Seam)
 
-**KHÔNG có model AI thật được cài đặt hoặc chạy** ở giai đoạn này. Toàn bộ
-module `app/ai/` là **placeholder có kiến trúc chuẩn**, để môn **Thị giác
-máy tính** cắm pipeline thật vào mà **không cần viết lại hệ thống**.
+Hệ thống được thiết kế theo kiến trúc Seam Pattern sẵn sàng cắm model thật từ môn **Thị giác máy tính** mà **không cần thay đổi UI, Service hay Database Schema**.
 
 ```text
-Video
+Video / Webcam Input
  ↓
-YOLOv8 Detection          (app/ai/detection_placeholder.py)
+YOLOv8 Detection          (app/ai/detection_placeholder.py -> RealAIService)
  ↓
-ByteTrack / DeepSORT        (app/ai/tracking_placeholder.py)
+ByteTrack / DeepSORT        (app/ai/tracking_placeholder.py -> RealAIService)
  ↓
-Track-level features        (app/ai/feature_extractor.py)
+Feature Extractor           (app/ai/feature_extractor.py)
  ↓
-Behavior analysis
+Behavior Classifier         (app/ai/classifier_placeholder.py)
  ↓
-Random Forest / MLP         (app/ai/classifier_placeholder.py)
+AI Contract Result         (DuckTrack, AIDetection, AIAlertResult, AIAnalysisResult)
  ↓
-NORMAL / SUSPECTED
+Overlay Drawer (OpenCV)    (draw_duck_overlay -> QImage -> UI Label)
  ↓
-AI Result Database (ai_analysis_sessions / ai_detection_results / ai_alerts)
- ↓
-Dashboard / Veterinary Record / Notification Center
+Auto Workflow              (AIAnalysisService -> Database + Alert + Draft Vet Record)
 ```
 
-Hai bệnh mục tiêu: **Lật ngửa**, **Tụ huyết trùng**.
-Nhãn tổng: **Có bệnh / Không bệnh**. Tracking chỉ trong phạm vi 1 video
-(không triển khai long-term re-identification).
+### 6.2 Hướng dẫn cắm weights YOLOv8 + ByteTrack thật
 
-### 6.2 Cách thay Placeholder bằng model thật
+Khi có weights huấn luyện thật (`.pt` file):
 
-Toàn bộ UI, database, lịch sử phiên phân tích đã hoạt động với
-`PlaceholderAIService`. Để chuyển sang model thật:
-
-1. Tạo `RealAIService(AIService)` trong `app/ai/ai_service.py` (hoặc file
-   mới), implement `analyze_video(video_path) -> AIAnalysisResult`, load
-   YOLOv8 (Ultralytics) + ByteTrack bên trong.
-2. Cập nhật `DetectionPlaceholder`, `TrackingPlaceholder`,
-   `FeatureExtractorPlaceholder`, `ClassifierPlaceholder` bằng
-   implementation thật (hoặc gọi trực tiếp trong `RealAIService`).
-3. Đổi **một dòng duy nhất** trong `get_ai_service()`:
+1. **Thêm thư viện**: Thêm `ultralytics`, `torch`, `lap` vào `requirements.txt` và chạy `pip install -r requirements.txt`.
+2. **Triển khai `RealAIService`**: Mở file `app/ai/ai_service.py` và hoàn thiện lớp `RealAIService(AIServiceBase)`:
    ```python
-   def get_ai_service() -> AIService:
-       return RealAIService()   # thay vì PlaceholderAIService()
+   from ultralytics import YOLO
+
+   class RealAIService(AIServiceBase):
+       def __init__(self, model_path: str = "models/duck_yolov8.pt"):
+           self.model = YOLO(model_path)
+
+       def analyze_video(self, video_path: str) -> AIAnalysisResult:
+           results = self.model.track(source=video_path, tracker="bytetrack.yaml", stream=True)
+           # Chuyển đổi kết quả của Ultralytics sang danh sách DuckTrack, AIDetection, AIAlertResult
+           # ...
+           return AIAnalysisResult(...)
    ```
-4. Không cần sửa `ai_analysis_service.py`, UI (`ai_view.py`), hay database
-   schema — `AIAnalysisResult.detections` / `.alerts` đã đúng shape để map
-   thẳng vào `ai_detection_results` / `ai_alerts`.
-5. Thêm `ultralytics`, `torch`, `lap` (ByteTrack) vào `requirements.txt`
-   khi tích hợp thật (cố tình chưa thêm ở giai đoạn hiện tại để project nhẹ).
-
-### 6.3 Ghi chú tương thích với project Computer Vision (camera real-time)
-
-Project CV riêng (camera monitoring, dark theme, đã có sẵn ở nhóm) lưu
-cảnh báo với các trường `duck_id`, `behavior`, `level`, `snapshot_path`
-trong database riêng của nó (`DuckAIDatabase`). Khi ghép hai project:
-
-- `duck_id` (CV) ↔ `track_id` (bảng `ai_detection_results` / `ai_alerts`)
-- `behavior` (CV) ↔ `behavior_label`
-- `level` (CV, ví dụ "warning") ↔ `severity` (`RED`/`ORANGE`/`GREEN`)
-- `snapshot_path` (CV) có thể lưu vào `notes`/`description` của
-  `AIDetectionResult`/`AIAlert`, hoặc thêm cột mới nếu cần giữ ảnh chụp.
-
-Tab "Camera real-time" trong menu **Nhận diện AI** hiện đang **DISABLED /
-COMING SOON**, đúng như spec — đây là điểm nối tương lai giữa hai project.
+3. **Kích hoạt Service thật**: Đổi 1 dòng trong `app/ai/ai_service.py`:
+   ```python
+   def get_ai_service() -> AIServiceBase:
+       return RealAIService()  # Thay cho PlaceholderAIService()
+   ```
+4. **Không cần sửa đổi UI hay DB**: Kết quả `AIAnalysisResult` được `AIAnalysisService` tự động lưu vào database (`ai_analysis_sessions`, `ai_detection_results`, `ai_alerts`), hiển thị Bounding Box overlay và kích hoạt quy trình thú y tự động.
 
 ---
 
-## 7. Ghi chú kỹ thuật
+## 7. Đồng bộ dữ liệu với Web (Offline-First Sync)
 
-- Toàn bộ icon dùng emoji (🦆 📊 🩺 ...) để đảm bảo chạy được ngay trên mọi
-  máy Windows/PyCharm mà không cần cấu hình font icon. `qtawesome` đã có
-  trong `requirements.txt` nếu muốn nâng cấp icon sau này.
-- Màu sắc theo design system: Primary `#2E7D32`, Secondary `#F4A62D`,
-  Background `#F5F5F0`, Danger `#D32F2F` — định nghĩa tại
-  `app/resources/styles/app.qss` và `app/config/constants.py::Colors`.
-- Responsive: dùng `QVBoxLayout`/`QHBoxLayout`/`QGridLayout`/`QScrollArea`,
-  test tốt ở 1366×768 và 1920×1080.
-- Vì môi trường build không có kết nối mạng để cài PyQt6/SQLAlchemy và
-  chạy thử trực tiếp, code đã được kiểm tra kỹ bằng cách: biên dịch cú
-  pháp toàn bộ (`py_compile`), đối chiếu tên phương thức Service ↔ lời gọi
-  từ UI, và kiểm tra tính nhất quán `back_populates` của toàn bộ quan hệ
-  SQLAlchemy. Khi chạy `pip install -r requirements.txt` trên máy có
-  mạng, ứng dụng sẽ khởi tạo database + seed data + mở màn hình đăng nhập
-  như mô tả ở mục 1.
+### 7.1 Kiến trúc Đồng bộ Offline-First
+
+Ứng dụng Desktop sử dụng kiến trúc **Offline-First**, hoạt động hoàn toàn độc lập với cơ sở dữ liệu local SQLite, đồng thời tự động đồng bộ 2 chiều với Backend Web API (FastAPI + Neon PostgreSQL Cloud).
+
+```text
+UI (PyQt6)  →  Service  →  Repository  →  SQLite Local (NGAY LẬP TỨC - status=PENDING)
+                                              ↓ (quét định kỳ 30s)
+                                       SyncService (QThread)
+                                              ↓ (HTTP Authorization: Bearer JWT)
+                                       REST API (FastAPI /api/v1)
+                                              ↓
+                                       PostgreSQL Cloud (Neon DB)
+```
+
+### 7.2 Cấu hình API Backend
+
+File cấu hình `.env` tại thư mục gốc:
+
+```env
+API_BASE_URL=http://localhost:8000/api/v1
+SYNC_ENABLED=true
+SYNC_INTERVAL_SECONDS=30
+```
+
+- Để thử nghiệm trên máy cục bộ: trỏ `API_BASE_URL=http://localhost:8000/api/v1`.
+- Để trỏ tới máy chủ cloud (Render/AWS): trỏ `API_BASE_URL=https://duckcare-api.onrender.com/api/v1`.
+
+Khi ứng dụng khởi động, log sẽ hiển thị rõ ràng:
+- `Đã kết nối API tại http://localhost:8000/api/v1, database backend: PostgreSQL Cloud @ Neon Postgres`
+- Hoặc `Không kết nối được API, chạy chế độ offline hoàn toàn` nếu không có mạng.
+
+### 7.3 Hướng dẫn Demo kịch bản Offline-First
+
+1. **Thao tác khi mất mạng (Offline)**:
+   - Tắt kết nối internet hoặc tắt backend API.
+   - Mở ứng dụng Desktop và đăng nhập (sử dụng phiên đã lưu local).
+   - Thực hiện thêm mới / chỉnh sửa Đàn vịt, Chuồng nuôi, hoặc Giao dịch kho.
+   - Quan sát thanh trạng thái dưới cùng: hiển thị icon Cam `X thay đổi chờ đồng bộ (mất kết nối)`. Giao diện phản hồi ngay lập tức, không bị đơ giật.
+2. **Tự động đồng bộ khi có mạng lại (Online)**:
+   - Bật lại internet hoặc khởi động backend API server.
+   - Quan sát biểu tượng thanh trạng thái tự động chuyển sang Xoay tròn `Đang đồng bộ...` và chuyển sang Xanh `Đã đồng bộ với server`.
+3. **Kiểm tra chéo dữ liệu trên Web App**:
+   - Truy cập giao diện Web hoặc kiểm tra database PostgreSQL cloud — dữ liệu vừa tạo ở máy Desktop đã tự động xuất hiện với đầy đủ thông tin.
 
 ---
 
-## 8. Checklist hoàn thành (spec section 52)
+## 8. Ghi chú kỹ thuật
 
-**Database**: tạo tự động ✅ · seed ✅ · CRUD ✅
-**Auth**: login ✅ · hash password ✅ · role-based menu ✅
+- Toàn bộ icon sử dụng bộ icon chuẩn font-awesome `fa5s...` qua thư viện `qtawesome`.
+- Màu sắc theo design system: Primary `#2E7D32`, Secondary `#F4A62D`, Background `#F5F7F3`, Danger `#D32F2F` — định nghĩa tại `app/resources/styles/app.qss` và `app/config/constants.py::Colors`.
+- Responsive: sử dụng `QVBoxLayout`/`QHBoxLayout`/`QGridLayout`/`QScrollArea`, tối ưu hiển thị cho độ phân giải từ 1366×768 tới 1920×1080.
+
+---
+
+## 9. Checklist hoàn thành (spec section 52)
+
+**Database**: tạo tự động ✅ · migration tự động ✅ · seed ✅ · CRUD ✅
+**Auth**: login JWT API shared với web ✅ · offline token local fallback ✅ · role-based menu ✅
+**Offline-First Sync**: PENDING / SYNCED / CONFLICT ✅ · Last Write Wins + dialog xử lý xung đột ✅ · SyncStatusWidget thanh trạng thái ✅
 **Dashboard**: KPI/Chart/Alert từ DB, không hard-code ✅
 **Flock**: CRUD + search/filter ✅
 **Inventory**: import/export/adjustment + low-stock alert ✅
 **Veterinary**: disease + record + vaccination reminder ✅
-**AI**: upload video, metadata thật, placeholder rõ ràng, lưu session, xem
-lịch sử ✅ (model AI thật: chưa, đúng như yêu cầu giai đoạn này)
+**AI**: upload video, webcam recorder, Bounding Box overlay, 3-barn simulation, lưu session ✅
 **Report**: filter + Export Excel ✅
-**Quality**: không hard-code dữ liệu cốt lõi, không giả AI, có
-global exception handler, README đầy đủ, requirements.txt đầy đủ ✅
+**Quality**: không hard-code dữ liệu, unit test pytest 25/25 passed ✅

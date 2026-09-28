@@ -25,6 +25,9 @@ class Flock(Base):
     status: Mapped[str] = mapped_column(String(20), default=FlockStatus.ACTIVE)
     notes: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     barn: Mapped["Barn"] = relationship(back_populates="flocks")
     events: Mapped[list["FlockEvent"]] = relationship(back_populates="flock", cascade="all, delete-orphan")
@@ -60,6 +63,9 @@ class FlockEvent(Base):
     notes: Mapped[str | None] = mapped_column(String(500))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flock: Mapped["Flock"] = relationship(back_populates="events")
 
@@ -77,6 +83,9 @@ class ProductionRecord(Base):
     average_weight: Mapped[float | None] = mapped_column(Float)
     feed_consumption: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(String(500))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flock: Mapped["Flock"] = relationship(back_populates="production_records")
 

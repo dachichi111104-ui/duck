@@ -1,14 +1,19 @@
+"""
+AI Analysis Service - Business logic & Database Seam for AI pipeline results.
+"""
 from __future__ import annotations
 
 import datetime as dt
 
 from app.database.connection import session_scope
-from app.database.models import AIAnalysisSession, AIDetectionResult, AIAlert, Notification
+from app.database.models import (
+    AIAnalysisSession, AIDetectionResult, AIAlert, Notification, Flock, VeterinaryRecord
+)
 from app.repositories.ai_repository import AISessionRepository, AIDetectionRepository, AIAlertRepository
-from app.ai.ai_service import get_ai_service
+from app.ai.ai_service import get_ai_service, AIAnalysisResult
 from app.ai.video_processor import extract_metadata, VideoMetadata
 from app.utils.logger import log_action, get_logger
-from app.config.constants import AlertStatus, AlertSeverity, AlertType
+from app.config.constants import AlertStatus, AlertSeverity, AlertType, VetRecordStatus
 
 logger = get_logger("ai_analysis_service")
 
@@ -24,7 +29,14 @@ class AIAnalysisService:
         return extract_metadata(video_path)
 
     def run_analysis(self, actor: str, video_path: str, metadata: VideoMetadata) -> AIAnalysisSession:
-        result = self._ai_service.analyze_video(video_path)
+        """
+        Executes AI analysis pipeline and runs the fully automated end-to-end workflow:
+        1. Saves AI Analysis Session metadata.
+        2. Persists AI Detections & Bounding Box Coordinates.
+        3. Creates System Alerts & Unread Notifications.
+        4. Links AI alerts directly to Veterinary Medical Records (VeterinaryRecord).
+        """
+        result: AIAnalysisResult = self._ai_service.analyze_video(video_path)
 
         with session_scope() as session:
             ai_session = AIAnalysisSession(
@@ -40,37 +52,79 @@ class AIAnalysisService:
             )
             self._session_repo.add(session, ai_session)
 
+            has_sick_duck = False
+            sick_details = []
+
             for det in result.detections:
+                is_sick = (det.health_status == "Có bệnh" or "bệnh" in str(det.behavior_label).lower())
+                if is_sick:
+                    has_sick_duck = True
+                    sick_details.append(f"Cá thể ID:{det.track_id} - {det.behavior_label}")
+
                 self._detection_repo.add(session, AIDetectionResult(
-                    session_id=ai_session.id, track_id=det.track_id, timestamp=det.timestamp,
+                    session_id=ai_session.id,
+                    track_id=det.track_id,
+                    timestamp=det.timestamp,
                     bbox_x=det.bbox[0] if det.bbox else None,
                     bbox_y=det.bbox[1] if det.bbox else None,
                     bbox_width=det.bbox[2] if det.bbox else None,
                     bbox_height=det.bbox[3] if det.bbox else None,
-                    confidence=det.confidence, behavior_label=det.behavior_label,
-                    health_status=det.health_status, notes=det.notes,
+                    confidence=det.confidence,
+                    behavior_label=det.behavior_label,
+                    health_status=det.health_status,
+                    notes=det.notes,
                 ))
 
             for alert in result.alerts:
                 self._alert_repo.add(session, AIAlert(
-                    session_id=ai_session.id, track_id=alert.track_id,
-                    alert_type=alert.alert_type, severity=alert.severity,
-                    timestamp=alert.timestamp, description=alert.description,
+                    session_id=ai_session.id,
+                    track_id=alert.track_id,
+                    alert_type=alert.alert_type,
+                    severity=alert.severity,
+                    timestamp=alert.timestamp,
+                    description=alert.description,
                 ))
 
-            session.flush()  # ai_session.id is now populated
+            session.flush()  # ai_session.id is populated
 
-            # Always raise a green "analysis completed" notification so the
-            # Notification Center reflects that the placeholder ran.
-            session.add(Notification(
-                alert_type=AlertType.VIDEO_ANALYSIS_DONE,
-                severity=AlertSeverity.GREEN,
-                title="Phân tích video hoàn thành",
-                message=f"Đã xử lý video '{metadata.file_name}' (AI placeholder).",
-                reference_type="ai_session",
-                reference_id=ai_session.id,
-                status=AlertStatus.UNREAD,
-            ))
+            # AUTOMATED WORKFLOW: Create Red Alert Notification & Auto-Suggest Vet Record
+            if has_sick_duck or result.alerts:
+                summary_str = "; ".join(sick_details[:2]) if sick_details else "Phát hiện triệu chứng té ngã / giảm vận động."
+                session.add(Notification(
+                    alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
+                    severity=AlertSeverity.RED,
+                    title="CẢNH BÁO AI: Phát hiện vịt có dấu hiệu bệnh",
+                    message=f"Hệ thống AI vừa phát hiện cá thể bất thường trong video '{metadata.file_name}'. Chi tiết: {summary_str}",
+                    reference_type="ai_session",
+                    reference_id=ai_session.id,
+                    status=AlertStatus.UNREAD,
+                ))
+
+                # Auto-link draft Veterinary Record to active flock
+                active_flock = session.query(Flock).filter(Flock.status == "ACTIVE").first()
+                if active_flock:
+                    vet_rec = VeterinaryRecord(
+                        flock_id=active_flock.id,
+                        diagnosis_date=dt.date.today(),
+                        suspected_disease="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
+                        affected_count=1,
+                        symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
+                        treatment_plan="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
+                        veterinarian_name=actor or "Hệ thống AI tự động",
+                        status=VetRecordStatus.UNDER_MONITORING,
+                        notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
+                    )
+                    session.add(vet_rec)
+            else:
+                session.add(Notification(
+                    alert_type=AlertType.VIDEO_ANALYSIS_DONE,
+                    severity=AlertSeverity.GREEN,
+                    title="Phân tích video hoàn thành",
+                    message=f"Đã phân tích xong video '{metadata.file_name}'. Đàn vịt khỏe mạnh bình thường.",
+                    reference_type="ai_session",
+                    reference_id=ai_session.id,
+                    status=AlertStatus.UNREAD,
+                ))
 
             session.flush()
             session.expunge(ai_session)

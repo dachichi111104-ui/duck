@@ -5,9 +5,12 @@ import datetime as dt
 from PyQt6.QtCore import QDate
 from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QComboBox, QDoubleSpinBox, QDateEdit,
-    QCheckBox, QDialogButtonBox, QMessageBox, QTextEdit,
+    QCheckBox, QDialogButtonBox, QMessageBox, QTextEdit, QLabel,
 )
+from sqlalchemy import select, func
 
+from app.database.connection import session_scope
+from app.database.models import InventoryItem
 from app.services.inventory_service import InventoryService
 from app.utils.validators import ValidationError
 
@@ -28,7 +31,8 @@ class ItemFormDialog(QDialog):
         for cat in self._service.list_categories():
             self.category_combo.addItem(cat.name, cat.id)
 
-        self.code_input = QLineEdit()
+        self.code_label = QLabel()
+        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
         self.name_input = QLineEdit()
         self.unit_input = QLineEdit()
         self.unit_input.setPlaceholderText("kg, chai, cái, ...")
@@ -49,7 +53,7 @@ class ItemFormDialog(QDialog):
         self.description_input.setMaximumHeight(60)
 
         form.addRow("Danh mục *", self.category_combo)
-        form.addRow("Mã vật tư *", self.code_input)
+        form.addRow("Mã vật tư *", self.code_label)
         form.addRow("Tên vật tư *", self.name_input)
         form.addRow("Đơn vị *", self.unit_input)
         form.addRow("Định mức tối thiểu", self.min_qty_input)
@@ -70,8 +74,7 @@ class ItemFormDialog(QDialog):
             idx = self.category_combo.findData(item.category_id)
             if idx >= 0:
                 self.category_combo.setCurrentIndex(idx)
-            self.code_input.setText(item.code)
-            self.code_input.setEnabled(False)
+            self.code_label.setText(item.code)
             self.name_input.setText(item.name)
             self.unit_input.setText(item.unit)
             self.min_qty_input.setValue(item.minimum_quantity)
@@ -81,6 +84,10 @@ class ItemFormDialog(QDialog):
             if item.expiry_date:
                 self.has_expiry_check.setChecked(True)
                 self.expiry_input.setDate(QDate(item.expiry_date.year, item.expiry_date.month, item.expiry_date.day))
+        else:
+            with session_scope() as session:
+                max_id = session.execute(select(func.max(InventoryItem.id))).scalar() or 0
+            self.code_label.setText(f"VT{max_id + 1:03d}")
 
     def _toggle_expiry(self, checked: bool) -> None:
         self.expiry_input.setEnabled(checked)
@@ -100,7 +107,7 @@ class ItemFormDialog(QDialog):
                 self._service.create_item(
                     self.current_user.username,
                     category_id=self.category_combo.currentData(),
-                    code=self.code_input.text(), name=self.name_input.text(),
+                    code=self.code_label.text(), name=self.name_input.text(),
                     unit=self.unit_input.text(), minimum_quantity=self.min_qty_input.value(),
                     unit_price=self.price_input.value(), expiry_date=expiry,
                     supplier=self.supplier_input.text(), description=self.description_input.toPlainText(),

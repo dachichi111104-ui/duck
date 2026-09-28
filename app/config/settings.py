@@ -28,10 +28,22 @@ for _d in (DATABASE_DIR, VIDEOS_DIR, EXPORTS_DIR, REPORTS_DIR, LOGS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
+# Load environment variables from .env if present
+# ---------------------------------------------------------------------------
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    with open(env_file, "r", encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
+# ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
 DATABASE_FILE = DATABASE_DIR / "wild_duck_farm.db"
-DATABASE_URL = os.environ.get("WDF_DATABASE_URL", f"sqlite:///{DATABASE_FILE}")
+DATABASE_URL = os.environ.get("DATABASE_URL", os.environ.get("WDF_DATABASE_URL", f"sqlite:///{DATABASE_FILE}"))
 
 # ---------------------------------------------------------------------------
 # Application metadata
@@ -44,9 +56,6 @@ ORGANIZATION_NAME = "WildDuckFarm"
 # ---------------------------------------------------------------------------
 # Security
 # ---------------------------------------------------------------------------
-# NOTE: for a real production system this should come from an environment
-# variable / secrets manager. For this desktop capstone project a local
-# constant is acceptable since the DB itself is local (SQLite file).
 SECRET_SALT = os.environ.get("WDF_SECRET_SALT", "wild-duck-farm-dev-salt")
 
 # ---------------------------------------------------------------------------
@@ -60,3 +69,13 @@ MIN_WINDOW_HEIGHT = 560
 LOW_STOCK_WARNING_ONLY = True  # if True, low-stock uses a single threshold field
 EXPIRY_WARNING_DAYS = 30  # days before expiry to raise a warning alert
 VACCINATION_DUE_SOON_DAYS = 7  # days before next vaccination date to warn
+
+# ---------------------------------------------------------------------------
+# API & Offline-First Sync Configuration
+# ---------------------------------------------------------------------------
+API_BASE_URL = os.environ.get("WDF_API_BASE_URL", os.environ.get("API_BASE_URL", "http://localhost:8000/api/v1")).rstrip("/")
+SYNC_ENABLED = os.environ.get("WDF_SYNC_ENABLED", os.environ.get("SYNC_ENABLED", "true")).lower() in ("true", "1", "yes")
+SYNC_INTERVAL_SECONDS = int(os.environ.get("WDF_SYNC_INTERVAL_SECONDS", os.environ.get("SYNC_INTERVAL_SECONDS", "30")))
+TOKEN_STORAGE_FILE = DATA_DIR / "tokens.json"
+
+

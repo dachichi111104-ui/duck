@@ -15,6 +15,9 @@ class Role(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     users: Mapped[list["User"]] = relationship(back_populates="role")
 
@@ -35,6 +38,9 @@ class User(Base):
     status: Mapped[str] = mapped_column(String(20), default=UserStatus.ACTIVE)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     role: Mapped["Role"] = relationship(back_populates="users")
 

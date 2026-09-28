@@ -41,6 +41,10 @@ class TransactionDialog(QDialog):
         self.quantity_input = QDoubleSpinBox()
         self.quantity_input.setRange(0.01, 1_000_000)
         self.quantity_input.setSuffix(f" {item.unit}")
+        if default_type == InventoryTransactionType.ADJUSTMENT:
+            self.quantity_input.setValue(item.quantity)
+        else:
+            self.quantity_input.setValue(1.0)
 
         self.date_input = QDateEdit(calendarPopup=True)
         self.date_input.setDate(QDate.currentDate())

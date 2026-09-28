@@ -5,20 +5,23 @@ from __future__ import annotations
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QPushButton, QMessageBox, QCheckBox,
+    QPushButton, QMessageBox, QCheckBox, QLabel, QFileDialog,
 )
+from sqlalchemy import select, func
 
-from app.services.camera_service import CameraService, CameraInfo
+from app.database.connection import session_scope
+from app.database.models import Camera
+from app.services.camera_service import CameraService
 
 
 class CameraFormDialog(QDialog):
-    def __init__(self, camera: CameraInfo | None = None, parent=None):
+    def __init__(self, camera: Camera | None = None, parent=None):
         super().__init__(parent)
         self.camera = camera
         self.service = CameraService()
 
         self.setWindowTitle("Sửa thông tin Camera" if camera else "Thêm Camera mới")
-        self.setFixedWidth(450)
+        self.setFixedWidth(480)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -26,9 +29,9 @@ class CameraFormDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(12)
 
-        self.code_input = QLineEdit()
-        self.code_input.setPlaceholderText("VD: CAM-09")
-        form.addRow("Mã Camera *:", self.code_input)
+        self.code_label = QLabel()
+        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
+        form.addRow("Mã Camera *:", self.code_label)
 
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("VD: Khu Ao Bơi 02")
@@ -42,12 +45,23 @@ class CameraFormDialog(QDialog):
         self.rtsp_input.setPlaceholderText("rtsp://192.168.1.109/stream1")
         form.addRow("RTSP Stream URL:", self.rtsp_input)
 
+        # Video File for simulation source
+        video_box = QHBoxLayout()
+        self.video_path_input = QLineEdit()
+        self.video_path_input.setPlaceholderText("Tệp video mp4/avi mô phỏng (tùy chọn)")
+        browse_btn = QPushButton("Chọn...")
+        browse_btn.setFixedWidth(60)
+        browse_btn.clicked.connect(self._browse_video)
+        video_box.addWidget(self.video_path_input)
+        video_box.addWidget(browse_btn)
+        form.addRow("Tệp video mô phỏng:", video_box)
+
         self.res_combo = QComboBox()
         self.res_combo.addItems(["1920x1080", "1280x720", "2560x1440", "3840x2160"])
         form.addRow("Độ phân giải:", self.res_combo)
 
         self.fps_combo = QComboBox()
-        self.fps_combo.addItems(["24", "30", "60", "15"])
+        self.fps_combo.addItems(["30", "24", "60", "15"])
         form.addRow("Khung hình (FPS):", self.fps_combo)
 
         self.ai_checkbox = QCheckBox("Bật nhận diện AI cho camera này")
@@ -57,12 +71,22 @@ class CameraFormDialog(QDialog):
         layout.addLayout(form)
 
         if camera:
-            self.code_input.setText(camera.code)
-            self.code_input.setEnabled(False)
+            self.code_label.setText(camera.code)
             self.name_input.setText(camera.name)
-            self.location_input.setText(camera.location)
-            self.rtsp_input.setText(camera.rtsp_url)
+            self.location_input.setText(camera.location or "")
+            self.rtsp_input.setText(camera.rtsp_url or "")
+            self.video_path_input.setText(camera.video_file_path or "")
             self.ai_checkbox.setChecked(camera.ai_enabled)
+            idx_res = self.res_combo.findText(camera.resolution or "1920x1080")
+            if idx_res >= 0:
+                self.res_combo.setCurrentIndex(idx_res)
+            idx_fps = self.fps_combo.findText(str(camera.fps or 30))
+            if idx_fps >= 0:
+                self.fps_combo.setCurrentIndex(idx_fps)
+        else:
+            with session_scope() as session:
+                max_id = session.execute(select(func.max(Camera.id))).scalar() or 0
+            self.code_label.setText(f"CAM-{max_id + 1:02d}")
 
         btns = QHBoxLayout()
         btns.addStretch()
@@ -78,32 +102,42 @@ class CameraFormDialog(QDialog):
 
         layout.addLayout(btns)
 
+    def _browse_video(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Chọn tệp video mô phỏng", "", "Video Files (*.mp4 *.avi *.mov *.mkv);;All Files (*)"
+        )
+        if file_path:
+            self.video_path_input.setText(file_path)
+
     def _save(self):
-        code = self.code_input.text().strip()
+        code = self.code_label.text().strip()
         name = self.name_input.text().strip()
 
         if not code or not name:
-            QMessageBox.warning(self, "Thiếu thông tin", "Vui lòng nhập Mã và Tên Camera.")
+            QMessageBox.warning(self, "Thiếu thông tin", "Vui lòng nhập Tên Camera.")
             return
 
         if not self.camera:
-            new_cam = CameraInfo(
+            self.service.create_camera(
                 code=code,
                 name=name,
                 location=self.location_input.text().strip() or "Khu vực chung",
-                status="ONLINE",
-                fps=int(self.fps_combo.currentText()),
-                resolution=self.res_combo.currentText(),
                 rtsp_url=self.rtsp_input.text().strip() or f"rtsp://192.168.1.100/{code}",
+                video_file_path=self.video_path_input.text().strip() or None,
+                resolution=self.res_combo.currentText(),
+                fps=int(self.fps_combo.currentText()),
                 ai_enabled=self.ai_checkbox.isChecked(),
             )
-            self.service.cameras.append(new_cam)
         else:
-            self.camera.name = name
-            self.camera.location = self.location_input.text().strip()
-            self.camera.rtsp_url = self.rtsp_input.text().strip()
-            self.camera.resolution = self.res_combo.currentText()
-            self.camera.fps = int(self.fps_combo.currentText())
-            self.camera.ai_enabled = self.ai_checkbox.isChecked()
+            self.service.update_camera(
+                self.camera.id,
+                name=name,
+                location=self.location_input.text().strip(),
+                rtsp_url=self.rtsp_input.text().strip(),
+                video_file_path=self.video_path_input.text().strip() or None,
+                resolution=self.res_combo.currentText(),
+                fps=int(self.fps_combo.currentText()),
+                ai_enabled=self.ai_checkbox.isChecked(),
+            )
 
         self.accept()

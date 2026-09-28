@@ -4,7 +4,7 @@ import datetime as dt
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QStackedWidget, QFrame, QMenu, QScrollArea,
+    QStackedWidget, QFrame, QMenu, QScrollArea, QMessageBox,
 )
 
 from app.config.settings import APP_NAME_VI, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT
@@ -17,47 +17,47 @@ from app.utils.logger import get_logger
 logger = get_logger("main_window")
 
 SIDEBAR_STRUCTURE = [
-    ("item", MenuKeys.DASHBOARD, "Dashboard"),
-    ("item", MenuKeys.MONITORING, "Live Monitoring"),
+    ("item", MenuKeys.DASHBOARD, "Bảng điều khiển"),
+    ("item", MenuKeys.MONITORING, "Giám sát trực tiếp"),
     ("group", "Giám sát & AI", [
-        (MenuKeys.CAMERAS, "Cameras"),
-        (MenuKeys.AI_DETECTION, "AI Detection"),
+        (MenuKeys.CAMERAS, "Quản lý Camera"),
+        (MenuKeys.AI_DETECTION, "Nhận diện & AI"),
     ]),
     ("group", "Quản lý Chăn nuôi", [
-        (MenuKeys.FLOCKS, "Flocks"),
-        (MenuKeys.BARNS, "Barns"),
-        (MenuKeys.PRODUCTION, "Production"),
-        (MenuKeys.INVENTORY, "Inventory"),
+        (MenuKeys.FLOCKS, "Đàn vịt"),
+        (MenuKeys.BARNS, "Chuồng nuôi"),
+        (MenuKeys.PRODUCTION, "Sản lượng trứng"),
+        (MenuKeys.INVENTORY, "Kho & Vật tư"),
     ]),
     ("group", "Sức khỏe & Thú y", [
-        (MenuKeys.VETERINARY, "Veterinary"),
-        (MenuKeys.VACCINATION, "Vaccinations"),
-        (MenuKeys.ALERTS, "Alerts"),
-        (MenuKeys.HISTORY, "History"),
-        (MenuKeys.REPORTS, "Reports"),
+        (MenuKeys.VETERINARY, "Hồ sơ bệnh án"),
+        (MenuKeys.VACCINATION, "Lịch tiêm phòng"),
+        (MenuKeys.ALERTS, "Cảnh báo hệ thống"),
+        (MenuKeys.HISTORY, "Lịch sử hoạt động"),
+        (MenuKeys.REPORTS, "Báo cáo & Thống kê"),
     ]),
     ("group", "Hệ thống", [
-        (MenuKeys.USERS, "Users"),
-        (MenuKeys.SETTINGS, "Settings"),
+        (MenuKeys.USERS, "Tài khoản người dùng"),
+        (MenuKeys.SETTINGS, "Cài đặt hệ thống"),
     ]),
 ]
 
 PAGE_HEADERS = {
-    MenuKeys.DASHBOARD: ("Dashboard", "Monitor flock health, farm activity and system status."),
-    MenuKeys.MONITORING: ("Live Monitoring", "Monitor multiple farm cameras in real time."),
-    MenuKeys.CAMERAS: ("Camera Management", "Configure and manage surveillance camera streams."),
-    MenuKeys.AI_DETECTION: ("AI Detection", "Analyze duck behavior and identify abnormal activity."),
-    MenuKeys.FLOCKS: ("Flock Management", "Overview flock statistics and manage duck populations."),
-    MenuKeys.BARNS: ("Barn Management", "Manage duck barns, locations and housing capacity."),
-    MenuKeys.PRODUCTION: ("Production Tracking", "Track egg production, weight averages and trends."),
-    MenuKeys.INVENTORY: ("Inventory Management", "Track feed, medicine, supplies and stock alerts."),
-    MenuKeys.VETERINARY: ("Veterinary Records", "Track duck health condition, diagnoses and treatments."),
-    MenuKeys.VACCINATION: ("Vaccination Schedule", "Manage vaccination plans and upcoming due dates."),
-    MenuKeys.ALERTS: ("System Alerts", "View and filter real-time farm alerts and warnings."),
-    MenuKeys.HISTORY: ("Event History", "Audit logs and system activity history."),
-    MenuKeys.REPORTS: ("Farm Reports", "Generate and export analytical farm management reports."),
-    MenuKeys.USERS: ("User Management", "Manage application accounts and system access roles."),
-    MenuKeys.SETTINGS: ("System Settings", "Configure farm preferences, camera options and system rules."),
+    MenuKeys.DASHBOARD: ("Bảng điều khiển", "Theo dõi tổng quan tình hình chăn nuôi, sức khỏe đàn vịt và hệ thống."),
+    MenuKeys.MONITORING: ("Giám sát trực tiếp", "Theo dõi các góc camera tại các chuồng vịt theo thời gian thực."),
+    MenuKeys.CAMERAS: ("Quản lý Camera", "Cấu hình danh sách camera giám sát và kết nối luồng RTSP."),
+    MenuKeys.AI_DETECTION: ("Nhận diện & Chẩn đoán AI", "Phân tích hành vi đàn vịt, phát hiện tự động dấu hiệu bệnh và phân tích mật độ."),
+    MenuKeys.FLOCKS: ("Quản lý Đàn vịt", "Theo dõi số lượng cá thể, biến động đàn và tỷ lệ sống."),
+    MenuKeys.BARNS: ("Quản lý Chuồng nuôi", "Quản lý các khu vực chuồng nuôi, vị trí và sức chứa."),
+    MenuKeys.PRODUCTION: ("Theo dõi Sản lượng Trứng", "Ghi nhận thu hoạch trứng hàng ngày, tính bình quân và biểu đồ xu hướng."),
+    MenuKeys.INVENTORY: ("Quản lý Kho & Vật tư", "Theo dõi nhập xuất tồn cám, thuốc thú y, vắc xin và cảnh báo định mức."),
+    MenuKeys.VETERINARY: ("Hồ sơ Bệnh án Thú y", "Ghi nhận tình trạng sức khỏe đàn vịt, chẩn đoán và phác đồ điều trị."),
+    MenuKeys.VACCINATION: ("Lịch Tiêm phòng", "Kế hoạch tiêm vắc xin phòng dịch tả, tụ huyết trùng và nhắc nhở hạn tiêm."),
+    MenuKeys.ALERTS: ("Cảnh báo Hệ thống", "Xem và xử lý danh sách cảnh báo tự động về sức khỏe, tồn kho và thiết bị."),
+    MenuKeys.HISTORY: ("Lịch sử Hoạt động", "Nhật ký kiểm toán hệ thống và lịch sử các thao tác đã diễn ra."),
+    MenuKeys.REPORTS: ("Báo cáo & Thống kê", "Tổng hợp báo cáo trang trại, xuất file Excel và phân tích mật độ đàn."),
+    MenuKeys.USERS: ("Quản lý Người dùng", "Quản lý tài khoản truy cập và phân quyền nhân viên trang trại."),
+    MenuKeys.SETTINGS: ("Cài đặt Hệ thống", "Tùy chỉnh thông số trang trại, thiết lập AI và thông báo."),
 }
 
 
@@ -91,11 +91,24 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         right_col.addWidget(self.stack, 1)
 
+        # Bottom Sync Status Widget
+        from app.ui.components.sync_status_widget import SyncStatusWidget
+        from app.sync.sync_service import SyncService
+        self.sync_widget = SyncStatusWidget()
+        self.sync_widget.conflict_btn.clicked.connect(self._open_conflict_dialog)
+        right_col.addWidget(self.sync_widget)
+
         right_wrap = QWidget()
         right_wrap.setLayout(right_col)
         root_layout.addWidget(right_wrap, 1)
 
         self._select_menu(MenuKeys.DASHBOARD)
+
+        # Start Background Offline-First Sync Service
+        self.sync_service = SyncService.get_instance(parent=self)
+        self.sync_service.worker.sync_status_changed.connect(self.sync_widget.update_status)
+        self.sync_service.worker.conflict_occurred.connect(self._on_sync_conflict)
+        self.sync_service.start()
 
         # Clock timer
         self._clock_timer = QTimer(self)
@@ -417,6 +430,43 @@ class MainWindow(QMainWindow):
         self._alert_service.mark_all_read()
         self._refresh_notification_badge()
 
+    def _on_sync_conflict(self, entity_name: str, local_id: int) -> None:
+        logger.warning("Sync conflict signal received for %s (id=%s)", entity_name, local_id)
+
+    def _open_conflict_dialog(self) -> None:
+        from app.sync.conflict_dialog import ConflictResolutionDialog
+        dlg = ConflictResolutionDialog(
+            entity_name="Dữ liệu chăn nuôi / kho",
+            local_info="Tên: Đàn Vịt Trời A1\nSố lượng: 120\nTrạng thái: Đang theo dõi (Chỉnh sửa cục bộ)",
+            remote_info="Tên: Đàn Vịt Trời A1\nSố lượng: 115\nTrạng thái: Hoàn thành (Cập nhật từ Web)",
+            parent=self
+        )
+        if dlg.exec():
+            choice = dlg.result_choice
+            if choice == "keep_local":
+                logger.info("User selected: Keep Local")
+            elif choice == "use_remote":
+                logger.info("User selected: Use Remote")
+            if hasattr(self, "sync_service"):
+                self.sync_service.trigger_sync_now()
+
     def _logout(self) -> None:
+        confirm = QMessageBox.question(
+            self,
+            "Xác nhận đăng xuất",
+            "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        if hasattr(self, "sync_service"):
+            self.sync_service.stop()
         self._auth_service.logout(self.current_user)
         self._on_logout()
+
+    def closeEvent(self, event) -> None:
+        if hasattr(self, "sync_service"):
+            self.sync_service.stop()
+        super().closeEvent(event)

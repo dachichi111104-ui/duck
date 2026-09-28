@@ -21,6 +21,9 @@ class Barn(Base):
     status: Mapped[str] = mapped_column(String(20), default=BarnStatus.ACTIVE)
     description: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flocks: Mapped[list["Flock"]] = relationship(back_populates="barn")
 

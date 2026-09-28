@@ -19,6 +19,7 @@ Thumbs.db
 # Environment / secrets
 .env
 .env.*
+data/tokens.json
 
 # Database
 *.db

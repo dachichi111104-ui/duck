@@ -1,20 +1,23 @@
 """
 Camera Surveillance Service & Live Frame Worker for Duck AI System.
-Simulates high-performance RTSP camera video feeds with farm rendering and telemetry.
+Manages Camera records in SQLite database and streams live video frames using VideoLoopReader.
 """
 from __future__ import annotations
 
 import datetime as dt
-import math
-import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any
 
 import cv2
 import numpy as np
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 
+from app.database.connection import session_scope
+from app.database.models import Camera
+from app.repositories.camera_repository import CameraRepository
+from app.ai.video_processor import VideoLoopReader
 from app.utils.logger import get_logger
 
 logger = get_logger("camera_service")
@@ -25,55 +28,38 @@ class CameraInfo:
     code: str
     name: str
     location: str
-    status: str = "ONLINE"  # ONLINE, CONNECTING, OFFLINE, STOPPED, AI_ANALYZING
+    status: str = "ONLINE"
     fps: int = 24
     resolution: str = "1920x1080"
     rtsp_url: str = ""
+    video_file_path: str | None = None
     ai_enabled: bool = True
     active_alerts: int = 0
 
 
-DEFAULT_CAMERAS = [
-    CameraInfo("CAM-01", "Khu Chuồng 01 - Khu A", "Chuồng 01", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.101/stream1", True, 1),
-    CameraInfo("CAM-02", "Máng ăn & Uống 01", "Chuồng 01", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.102/stream1", True, 0),
-    CameraInfo("CAM-03", "Aos Nước Bơi - Khu B", "Khu Nước", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.103/stream1", True, 1),
-    CameraInfo("CAM-04", "Chuồng 02 - Khu A", "Chuồng 02", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.104/stream1", True, 0),
-    CameraInfo("CAM-05", "Khu Ấp Trứng & Con", "Khu Ấp", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.105/stream1", True, 0),
-    CameraInfo("CAM-06", "Sân Nắng Ngoại Trời", "Sân Chơi", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.106/stream1", True, 0),
-    CameraInfo("CAM-07", "Chuồng 03 - Khu B", "Chuồng 03", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.107/stream1", True, 0),
-    CameraInfo("CAM-08", "Khu Cách Ly Thú Y", "Cách Ly", "ONLINE", 24, "1920x1080", "rtsp://1920.168.1.108/stream1", True, 0),
+# Initial seed cameras if table is empty
+DEFAULT_CAM_DATA = [
+    {"code": "CAM-01", "name": "Khu Chuồng 01 - Khu Ăn Uống", "location": "Chuồng 01", "status": "ONLINE", "rtsp_url": "rtsp://192.168.1.101/stream1", "ai_enabled": True},
+    {"code": "CAM-02", "name": "Máng ăn & Uống 01", "location": "Chuồng 01", "status": "ONLINE", "rtsp_url": "rtsp://192.168.1.102/stream1", "ai_enabled": True},
+    {"code": "CAM-03", "name": "Ao Nước Bơi - Khu B", "location": "Khu Nước", "status": "ONLINE", "rtsp_url": "rtsp://192.168.1.103/stream1", "ai_enabled": True},
+    {"code": "CAM-04", "name": "Chuồng 02 - Khu Sân Chơi", "location": "Chuồng 02", "status": "ONLINE", "rtsp_url": "rtsp://192.168.1.104/stream1", "ai_enabled": True},
 ]
 
 
 class CameraWorker(QThread):
     """
     Background worker thread that renders live video frames for all cameras.
+    Uses VideoLoopReader if video_file_path is assigned, otherwise renders 'Chưa có nguồn video mô phỏng'.
     Emits frame_ready(camera_code, QImage).
     """
     frame_ready = pyqtSignal(str, QImage)
 
-    def __init__(self, cameras: list[CameraInfo], parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.cameras = {c.code: c for c in cameras}
         self.running = True
         self.paused = False
-        self.show_ai_overlay = True
-
-        # Initialize simulated duck positions for animation
-        self.duck_agents = {}
-        for code in self.cameras:
-            ducks = []
-            for d_id in range(6):
-                ducks.append({
-                    "id": d_id + 1,
-                    "x": random.randint(80, 560),
-                    "y": random.randint(80, 320),
-                    "vx": random.uniform(-1.2, 1.2),
-                    "vy": random.uniform(-1.2, 1.2),
-                    "status": "SUSPECTED" if (code == "CAM-01" and d_id == 0) or (code == "CAM-03" and d_id == 2) else "HEALTHY",
-                    "conf": round(random.uniform(0.88, 0.98), 2),
-                })
-            self.duck_agents[code] = ducks
+        self._readers: dict[str, VideoLoopReader] = {}
+        self._repo = CameraRepository()
 
     def run(self):
         frame_width = 640
@@ -87,81 +73,75 @@ class CameraWorker(QThread):
             start_time = time.time()
             now_str = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            for code, cam in list(self.cameras.items()):
-                if cam.status == "OFFLINE" or cam.status == "STOPPED":
+            with session_scope() as session:
+                cameras = self._repo.get_all(session)
+
+            if not cameras:
+                time.sleep(0.5)
+                continue
+
+            for cam in cameras:
+                code = cam.code
+                if cam.status in ("OFFLINE", "STOPPED"):
                     continue
 
-                # Base image canvas (dark #101512)
-                frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
-                frame[:] = (18, 21, 16)  # BGR equivalent of #101512
+                frame_bgr = None
+                # Check video loop reader
+                if cam.video_file_path:
+                    reader = self._readers.get(code)
+                    if not reader:
+                        reader = VideoLoopReader(cam.video_file_path)
+                        self._readers[code] = reader
+                    else:
+                        reader.set_file_path(cam.video_file_path)
 
-                # Draw subtle barn floor / pond water background pattern
-                if "Aos" in cam.name or "Nước" in cam.location:
-                    # Water theme
-                    cv2.rectangle(frame, (40, 40), (600, 320), (35, 30, 20), -1)
-                    cv2.putText(frame, "POND AREA", (50, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (80, 75, 45), 1)
-                else:
-                    # Barn pen floor theme
-                    cv2.rectangle(frame, (40, 40), (600, 320), (28, 32, 26), -1)
-                    cv2.line(frame, (200, 40), (200, 320), (40, 45, 38), 1)
-                    cv2.line(frame, (400, 40), (400, 320), (40, 45, 38), 1)
-                    cv2.putText(frame, f"ZONE: {cam.location.upper()}", (50, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (70, 85, 70), 1)
+                    ok, v_frame = reader.read_frame()
+                    if ok and v_frame is not None:
+                        frame_bgr = cv2.resize(v_frame, (frame_width, frame_height))
 
-                # Update duck movements
-                ducks = self.duck_agents.get(code, [])
-                for d in ducks:
-                    d["x"] += d["vx"]
-                    d["y"] += d["vy"]
+                if frame_bgr is None:
+                    # No video file assigned or invalid video -> Display clean state canvas
+                    frame_bgr = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+                    frame_bgr[:] = (20, 24, 20)  # Dark farm green background
 
-                    if d["x"] < 60 or d["x"] > 580:
-                        d["vx"] *= -1
-                    if d["y"] < 60 or d["y"] > 300:
-                        d["vy"] *= -1
+                    # Center message: "Chưa có nguồn video mô phỏng"
+                    msg = "CHUA CO NGUON VIDEO MO PHONG"
+                    sub_msg = f"Camera: {cam.name}"
+                    sub_msg2 = "Gán tệp video mô phỏng trong cài đặt Camera"
 
-                    ix, iy = int(d["x"]), int(d["y"])
+                    cv2.putText(frame_bgr, msg, (120, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (140, 160, 140), 2, cv2.LINE_AA)
+                    cv2.putText(frame_bgr, sub_msg, (150, 195), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 120, 100), 1, cv2.LINE_AA)
+                    cv2.putText(frame_bgr, sub_msg2, (130, 225), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (80, 100, 80), 1, cv2.LINE_AA)
 
-                    # Draw duck representation
-                    duck_color = (60, 180, 240) if d["status"] == "HEALTHY" else (50, 50, 220)
-                    cv2.circle(frame, (ix, iy), 10, duck_color, -1)
-                    cv2.circle(frame, (ix + 6, iy - 3), 4, (40, 210, 255), -1)  # duck beak/head
+                # Telemetry HUD Header & Footer
+                cv2.putText(frame_bgr, f"LIVE  {cam.code} - {cam.name}", (12, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 100), 1)
+                cv2.putText(frame_bgr, now_str, (460, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 190, 180), 1)
 
-                    # Draw bounding box & AI label if AI overlay active
-                    if self.show_ai_overlay and cam.ai_enabled:
-                        box_color = (50, 180, 50) if d["status"] == "HEALTHY" else (40, 140, 240)
-                        lbl = f"Duck #{d['id']} {d['conf']}"
-                        if d["status"] == "SUSPECTED":
-                            lbl = f"Abnormal #{d['id']} (Lật ngửa)"
+                footer_text = f"FPS: {cam.fps}  RES: {cam.resolution or '1920x1080'}  STATUS: {cam.status}  AI: {'ON' if cam.ai_enabled else 'OFF'}"
+                cv2.putText(frame_bgr, footer_text, (12, frame_height - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (140, 150, 140), 1)
 
-                        cv2.rectangle(frame, (ix - 18, iy - 18), (ix + 18, iy + 18), box_color, 1)
-                        cv2.putText(frame, lbl, (ix - 18, iy - 22), cv2.FONT_HERSHEY_SIMPLEX, 0.35, box_color, 1)
-
-                # Telemetry HUD header & footer
-                cv2.putText(frame, f"● LIVE  {code} - {cam.name}", (12, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 100), 1)
-                cv2.putText(frame, now_str, (460, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 190, 180), 1)
-
-                footer_text = f"FPS: {cam.fps}  RES: {cam.resolution}  STATUS: {cam.status}  AI: {'ON' if self.show_ai_overlay else 'OFF'}"
-                cv2.putText(frame, footer_text, (12, frame_height - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (140, 150, 140), 1)
-
-                # Convert OpenCV BGR to Qt QImage
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Convert BGR to QImage
+                rgb_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgb_frame.shape
                 bytes_per_line = ch * w
                 qt_img = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888).copy()
 
                 self.frame_ready.emit(code, qt_img)
 
-            # Control loop frame rate (~24 FPS)
             elapsed = time.time() - start_time
             sleep_time = max(1.0 / 24.0 - elapsed, 0.005)
             time.sleep(sleep_time)
 
     def stop(self):
         self.running = False
+        for r in self._readers.values():
+            r.release()
+        self._readers.clear()
         self.wait(1000)
 
 
 class CameraService(QObject):
-    """Singleton-style camera service for managing camera states and stream workers."""
+    """Camera service for DB operations and stream worker management."""
 
     _instance = None
 
@@ -176,12 +156,29 @@ class CameraService(QObject):
             return
         super().__init__()
         self._initialized = True
-        self.cameras: list[CameraInfo] = [c for c in DEFAULT_CAMERAS]
+        self._repo = CameraRepository()
         self.worker: CameraWorker | None = None
+        self._ensure_seed_cameras()
+
+    def _ensure_seed_cameras(self):
+        with session_scope() as session:
+            cams = self._repo.get_all(session)
+            if not cams:
+                for idx, item in enumerate(DEFAULT_CAM_DATA):
+                    cam = Camera(
+                        code=item["code"],
+                        name=item["name"],
+                        location=item["location"],
+                        status=item["status"],
+                        rtsp_url=item["rtsp_url"],
+                        ai_enabled=item["ai_enabled"],
+                        sync_status="PENDING",
+                    )
+                    session.add(cam)
 
     def start_worker(self):
         if not self.worker or not self.worker.isRunning():
-            self.worker = CameraWorker(self.cameras)
+            self.worker = CameraWorker()
             self.worker.start()
 
     def stop_worker(self):
@@ -189,20 +186,73 @@ class CameraService(QObject):
             self.worker.stop()
             self.worker = None
 
-    def get_cameras(self) -> list[CameraInfo]:
-        return self.cameras
+    def get_cameras(self) -> list[Camera]:
+        with session_scope() as session:
+            return self._repo.get_all(session)
 
-    def get_camera(self, code: str) -> CameraInfo | None:
-        return next((c for c in self.cameras if c.code == code), None)
+    def get_camera_by_id(self, camera_id: int) -> Camera | None:
+        with session_scope() as session:
+            return session.get(Camera, camera_id)
+
+    def get_camera(self, code: str) -> Camera | None:
+        with session_scope() as session:
+            return self._repo.get_by_code(session, code)
+
+    def create_camera(self, code: str, name: str, location: str | None = None,
+                      rtsp_url: str | None = None, video_file_path: str | None = None,
+                      resolution: str = "1920x1080", fps: int = 30,
+                      ai_enabled: bool = True, barn_id: int | None = None) -> Camera:
+        with session_scope() as session:
+            cam = Camera(
+                code=code,
+                name=name,
+                location=location,
+                status="ONLINE",
+                rtsp_url=rtsp_url,
+                video_file_path=video_file_path,
+                resolution=resolution,
+                fps=fps,
+                ai_enabled=ai_enabled,
+                barn_id=barn_id,
+                sync_status="PENDING",
+            )
+            session.add(cam)
+            session.flush()
+            session.refresh(cam)
+            return cam
+
+    def update_camera(self, camera_id: int, **kwargs) -> Camera | None:
+        with session_scope() as session:
+            cam = session.get(Camera, camera_id)
+            if not cam:
+                return None
+            for k, v in kwargs.items():
+                if hasattr(cam, k):
+                    setattr(cam, k, v)
+            cam.sync_status = "PENDING"
+            cam.last_modified_at = dt.datetime.utcnow()
+            session.flush()
+            return cam
+
+    def delete_camera(self, camera_id: int) -> bool:
+        with session_scope() as session:
+            cam = session.get(Camera, camera_id)
+            if not cam:
+                return False
+            session.delete(cam)
+            return True
 
     def count_total(self) -> int:
-        return len(self.cameras)
+        with session_scope() as session:
+            return len(self._repo.get_all(session))
 
     def count_online(self) -> int:
-        return sum(1 for c in self.cameras if c.status == "ONLINE")
+        with session_scope() as session:
+            return sum(1 for c in self._repo.get_all(session) if c.status == "ONLINE")
 
     def count_offline(self) -> int:
-        return sum(1 for c in self.cameras if c.status == "OFFLINE")
+        with session_scope() as session:
+            return sum(1 for c in self._repo.get_all(session) if c.status == "OFFLINE")
 
     def count_alerts(self) -> int:
-        return sum(c.active_alerts for c in self.cameras)
+        return 0

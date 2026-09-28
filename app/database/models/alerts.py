@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import String, DateTime, func
+from sqlalchemy import String, Integer, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -26,6 +26,9 @@ class Notification(Base):
     reference_id: Mapped[int | None] = mapped_column()
     status: Mapped[str] = mapped_column(String(20), default=AlertStatus.UNREAD)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     def __repr__(self) -> str:
         return f"<Notification {self.alert_type} sev={self.severity}>"

@@ -15,6 +15,9 @@ class InventoryCategory(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     items: Mapped[list["InventoryItem"]] = relationship(back_populates="category")
 
@@ -37,6 +40,9 @@ class InventoryItem(Base):
     supplier: Mapped[str | None] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default=ItemStatus.ACTIVE)
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     category: Mapped["InventoryCategory"] = relationship(back_populates="items")
     transactions: Mapped[list["InventoryTransaction"]] = relationship(
@@ -63,6 +69,9 @@ class InventoryTransaction(Base):
     note: Mapped[str | None] = mapped_column(String(500))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     item: Mapped["InventoryItem"] = relationship(back_populates="transactions")
 

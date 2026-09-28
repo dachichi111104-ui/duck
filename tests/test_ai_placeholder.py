@@ -2,20 +2,21 @@ from app.ai.ai_service import get_ai_service, PlaceholderAIService, AIAnalysisRe
 from app.config.constants import AISessionStatus
 
 
-def test_get_ai_service_returns_placeholder():
+def test_get_ai_service_returns_valid_service():
+    from app.ai.ai_service import AIServiceBase
     service = get_ai_service()
-    assert isinstance(service, PlaceholderAIService)
+    assert isinstance(service, AIServiceBase)
 
 
-def test_placeholder_analyze_video_returns_no_real_detections():
+def test_placeholder_analyze_video_returns_simulated_detections():
     service = PlaceholderAIService()
     result: AIAnalysisResult = service.analyze_video("nonexistent_video.mp4")
 
     assert result.status == AISessionStatus.PLACEHOLDER_DONE
-    assert result.detections == []
-    assert result.alerts == []
-    assert "Chưa tích hợp" in result.message
-    assert result.summary["detection"] == "Chưa tích hợp"
+    assert len(result.tracks) == 3
+    assert len(result.detections) > 0
+    assert len(result.alerts) > 0
+    assert result.summary["detection"] == "YOLOv8-Simulated"
 
 
 def test_video_metadata_missing_file():

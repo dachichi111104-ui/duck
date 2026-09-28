@@ -26,14 +26,18 @@ _SessionFactory: sessionmaker | None = None
 def get_engine() -> Engine:
     global _engine
     if _engine is None:
+        db_url = DATABASE_URL
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
         _engine = create_engine(
-            DATABASE_URL,
+            db_url,
             echo=False,
             future=True,
-            connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
+            connect_args={"check_same_thread": False} if db_url.startswith("sqlite") else {},
         )
 
-        if DATABASE_URL.startswith("sqlite"):
+        if db_url.startswith("sqlite"):
             @event.listens_for(_engine, "connect")
             def _set_sqlite_pragma(dbapi_connection, _record):
                 cursor = dbapi_connection.cursor()
@@ -66,7 +70,10 @@ def session_scope() -> Generator[Session, None, None]:
 
 
 def is_database_initialized() -> bool:
-    return DATABASE_FILE.exists() and DATABASE_FILE.stat().st_size > 0
+    if DATABASE_URL.startswith("sqlite"):
+        return DATABASE_FILE.exists() and DATABASE_FILE.stat().st_size > 0
+    return True
+
 
 
 def init_database() -> bool:
@@ -81,7 +88,10 @@ def init_database() -> bool:
     import app.database.models  # noqa: F401
 
     first_run = not is_database_initialized()
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    from app.database.migration import ensure_sync_columns
+    ensure_sync_columns(engine)
     if first_run:
         logger.info("Database created at %s", DATABASE_FILE)
     return first_run

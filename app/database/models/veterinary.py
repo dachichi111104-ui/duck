@@ -16,6 +16,9 @@ class Disease(Base):
     name: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     cause: Mapped[str | None] = mapped_column(String(255))
     behavior_signs: Mapped[str | None] = mapped_column(String(500))
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     records: Mapped[list["VeterinaryRecord"]] = relationship(back_populates="disease")
 
@@ -40,6 +43,9 @@ class VeterinaryRecord(Base):
     notes: Mapped[str | None] = mapped_column(String(500))
     source: Mapped[str] = mapped_column(String(30), default="MANUAL")  # MANUAL | AI_ANALYSIS
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flock: Mapped["Flock"] = relationship(back_populates="veterinary_records")
     disease: Mapped["Disease"] = relationship(back_populates="records")
@@ -60,6 +66,9 @@ class Vaccination(Base):
     veterinarian: Mapped[str | None] = mapped_column(String(150))
     notes: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default=VaccinationStatus.SCHEDULED)
+    sync_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    last_modified_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    remote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flock: Mapped["Flock"] = relationship(back_populates="vaccinations")
 
