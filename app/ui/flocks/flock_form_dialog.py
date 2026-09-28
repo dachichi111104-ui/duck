@@ -29,14 +29,12 @@ class FlockFormDialog(QDialog):
 
         form = QFormLayout(self)
 
-        self.code_label = QLabel()
-        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
         self.name_input = QLineEdit()
         self.breed_input = QLineEdit()
         self.barn_combo = QComboBox()
         self.barn_combo.addItem("(Chưa gán chuồng)", None)
         for barn in self._barn_service.list_barns():
-            self.barn_combo.addItem(f"{barn.code} — {barn.name} (còn {barn.available_capacity})", barn.id)
+            self.barn_combo.addItem(f"{barn.name} (còn {barn.available_capacity})", barn.id)
 
         self.start_date_input = QDateEdit(calendarPopup=True)
         self.start_date_input.setDate(QDate.currentDate())
@@ -48,7 +46,6 @@ class FlockFormDialog(QDialog):
         self.notes_input = QTextEdit()
         self.notes_input.setMaximumHeight(70)
 
-        form.addRow("Mã đàn *", self.code_label)
         form.addRow("Tên đàn *", self.name_input)
         form.addRow("Giống", self.breed_input)
         form.addRow("Chuồng", self.barn_combo)
@@ -64,7 +61,7 @@ class FlockFormDialog(QDialog):
         form.addRow(buttons)
 
         if flock:
-            self.code_label.setText(flock.flock_code)
+            self._code = flock.flock_code
             self.name_input.setText(flock.name)
             self.breed_input.setText(flock.breed or "")
             self.initial_count_input.setValue(flock.initial_count)
@@ -78,7 +75,7 @@ class FlockFormDialog(QDialog):
         else:
             with session_scope() as session:
                 max_id = session.execute(select(func.max(Flock.id))).scalar() or 0
-            self.code_label.setText(f"FL{max_id + 1:03d}")
+            self._code = f"DV{max_id + 1:03d}"
 
     def _save(self) -> None:
         try:
@@ -91,7 +88,7 @@ class FlockFormDialog(QDialog):
             else:
                 self._flock_service.create_flock(
                     self.current_user.username,
-                    flock_code=self.code_label.text(),
+                    flock_code=self._code,
                     name=self.name_input.text(),
                     barn_id=self.barn_combo.currentData(),
                     breed=self.breed_input.text(),

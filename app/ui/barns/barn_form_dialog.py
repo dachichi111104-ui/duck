@@ -23,8 +23,6 @@ class BarnFormDialog(QDialog):
 
         form = QFormLayout(self)
 
-        self.code_label = QLabel()
-        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
         self.name_input = QLineEdit()
         self.location_input = QLineEdit()
         self.capacity_input = QSpinBox()
@@ -33,7 +31,6 @@ class BarnFormDialog(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setMaximumHeight(70)
 
-        form.addRow("Mã chuồng *", self.code_label)
         form.addRow("Tên chuồng *", self.name_input)
         form.addRow("Vị trí", self.location_input)
         form.addRow("Sức chứa *", self.capacity_input)
@@ -47,7 +44,7 @@ class BarnFormDialog(QDialog):
         form.addRow(buttons)
 
         if barn:
-            self.code_label.setText(barn.code)
+            self._code = barn.code
             self.name_input.setText(barn.name)
             self.location_input.setText(barn.location or "")
             self.capacity_input.setValue(barn.capacity)
@@ -55,7 +52,7 @@ class BarnFormDialog(QDialog):
         else:
             with session_scope() as session:
                 max_id = session.execute(select(func.max(Barn.id))).scalar() or 0
-            self.code_label.setText(f"C{max_id + 1:03d}")
+            self._code = f"CN{max_id + 1:03d}"
 
     def _save(self) -> None:
         try:
@@ -69,7 +66,7 @@ class BarnFormDialog(QDialog):
             else:
                 self._service.create_barn(
                     self.current_user.username,
-                    code=self.code_label.text(), name=self.name_input.text(),
+                    code=self._code, name=self.name_input.text(),
                     location=self.location_input.text(), capacity=self.capacity_input.value(),
                     description=self.description_input.toPlainText(),
                 )

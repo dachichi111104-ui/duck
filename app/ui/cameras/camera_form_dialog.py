@@ -29,10 +29,6 @@ class CameraFormDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(12)
 
-        self.code_label = QLabel()
-        self.code_label.setStyleSheet("font-weight: bold; color: #2E7D32;")
-        form.addRow("Mã Camera *:", self.code_label)
-
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("VD: Khu Ao Bơi 02")
         form.addRow("Tên Camera *:", self.name_input)
@@ -71,7 +67,7 @@ class CameraFormDialog(QDialog):
         layout.addLayout(form)
 
         if camera:
-            self.code_label.setText(camera.code)
+            self._code = camera.code
             self.name_input.setText(camera.name)
             self.location_input.setText(camera.location or "")
             self.rtsp_input.setText(camera.rtsp_url or "")
@@ -86,7 +82,7 @@ class CameraFormDialog(QDialog):
         else:
             with session_scope() as session:
                 max_id = session.execute(select(func.max(Camera.id))).scalar() or 0
-            self.code_label.setText(f"CAM-{max_id + 1:02d}")
+            self._code = f"CAM{max_id + 1:02d}"
 
         btns = QHBoxLayout()
         btns.addStretch()
@@ -110,10 +106,10 @@ class CameraFormDialog(QDialog):
             self.video_path_input.setText(file_path)
 
     def _save(self):
-        code = self.code_label.text().strip()
+        code = self._code
         name = self.name_input.text().strip()
 
-        if not code or not name:
+        if not name:
             QMessageBox.warning(self, "Thiếu thông tin", "Vui lòng nhập Tên Camera.")
             return
 

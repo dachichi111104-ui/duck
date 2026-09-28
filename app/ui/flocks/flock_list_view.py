@@ -17,7 +17,7 @@ from app.ui.flocks.flock_detail_view import FlockDetailView
 from app.utils.validators import ValidationError
 from app.config.constants import FlockStatus
 
-COLUMNS = ["Mã đàn", "Tên đàn", "Chuồng", "SL ban đầu", "SL hiện tại", "Hao hụt", "Tỷ lệ sống", "Ngày nhập", "Trạng thái sức khỏe"]
+COLUMNS = ["Tên đàn", "Chuồng", "SL ban đầu", "SL hiện tại", "Hao hụt", "Tỷ lệ sống", "Ngày nhập", "Trạng thái sức khỏe"]
 
 
 class FlockListView(QWidget):
@@ -54,7 +54,7 @@ class FlockListView(QWidget):
         toolbar.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Tìm theo mã đàn hoặc tên đàn...")
+        self.search_input.setPlaceholderText("Tìm theo tên đàn...")
         self.search_input.textChanged.connect(self._apply_filters)
         toolbar.addWidget(self.search_input, 2)
 
@@ -139,7 +139,7 @@ class FlockListView(QWidget):
             survival = f.survival_rate
             health_badge = "Healthy" if f.dead_count == 0 else "Monitoring"
             set_row(self.table, row, [
-                f.flock_code, f.name, f.barn.code if f.barn else "-",
+                f.name, f.barn.name if f.barn else "-",
                 f.initial_count, f.current_count, f.dead_count,
                 f"{survival}%", f.start_date.isoformat(), health_badge,
             ], row_data=f.id)

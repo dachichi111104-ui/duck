@@ -90,9 +90,9 @@ class FlockDetailView(QWidget):
 
         f = self.flock
         rows = [
-            ("Mã đàn", f.flock_code), ("Tên đàn", f.name),
+            ("Tên đàn", f.name),
             ("Loài", f.species), ("Giống", f.breed or "-"),
-            ("Chuồng", f.barn.code if f.barn else "-"),
+            ("Chuồng", f.barn.name if f.barn else "-"),
             ("Ngày nhập", f.start_date.isoformat()),
             ("Số lượng ban đầu", f.initial_count),
             ("Số lượng hiện tại", f.current_count),

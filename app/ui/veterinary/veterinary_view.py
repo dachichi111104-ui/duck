@@ -14,7 +14,7 @@ from app.ui.components.icons import get_icon
 from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
 from app.config.constants import VetRecordStatus
 
-COLUMNS = ["Ngày chẩn đoán", "Mã đàn", "Cá thể / Thẻ", "Bệnh nghi ngờ", "Triệu chứng", "Phác đồ điều trị", "Bác sĩ thú y", "Trạng thái", "Nguồn"]
+COLUMNS = ["Ngày chẩn đoán", "Tên đàn", "Cá thể / Thẻ", "Bệnh nghi ngờ", "Triệu chứng", "Phác đồ điều trị", "Bác sĩ thú y", "Trạng thái", "Nguồn"]
 
 
 class VeterinaryView(QWidget):
@@ -41,7 +41,7 @@ class VeterinaryView(QWidget):
         self.flock_filter = QComboBox()
         self.flock_filter.addItem("Tất cả các đàn vịt", None)
         for f in self._flock_service.list_flocks():
-            self.flock_filter.addItem(f"{f.flock_code} ({f.name})", f.id)
+            self.flock_filter.addItem(f"{f.flock_code} — {f.name}", f.id)
         self.flock_filter.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.flock_filter)
 
@@ -119,7 +119,7 @@ class VeterinaryView(QWidget):
 
             set_row(self.table, row, [
                 r.diagnosis_date.isoformat(),
-                r.flock.flock_code if r.flock else "-",
+                r.flock.name if r.flock else "-",
                 r.animal_reference or "Đàn chung",
                 r.disease.name if r.disease else (r.diagnosis or "-"),
                 r.symptoms or "-",

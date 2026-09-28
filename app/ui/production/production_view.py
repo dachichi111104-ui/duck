@@ -213,11 +213,11 @@ class ProductionView(QWidget):
         tf_layout.setSpacing(4)
         tf_layout.addWidget(QLabel("<b>Nhật ký thu hoạch sản lượng (Production Log)</b>"))
 
-        table = build_table(["Ngày thu hoạch", "Mã đàn", "Tên đàn", "Số trứng (Quả)", "Trọng lượng TB", "Lượng cám (kg)"])
+        table = build_table(["Ngày thu hoạch", "Tên đàn", "Số trứng (Quả)", "Trọng lượng TB", "Lượng cám (kg)"])
         table.setRowCount(len(record_data))
         for row, r in enumerate(reversed(record_data)):
             set_row(table, row, [
-                r["date"].isoformat(), r["flock_code"], r["flock_name"],
+                r["date"].isoformat(), r["flock_name"],
                 f"{r['egg_quantity']:,}", f"{r['avg_weight'] or '-'} kg", f"{r['feed_consumption'] or '-'} kg",
             ])
         table.setMinimumHeight(180)

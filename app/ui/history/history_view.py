@@ -13,7 +13,7 @@ from app.ui.components.table_helpers import build_table, set_row
 from app.ui.components.empty_state import EmptyState
 from app.config.constants import FlockEventType
 
-COLUMNS = ["Thời gian", "Mã đàn", "Tên đàn", "Loại sự kiện", "Số lượng", "Lý do / Ghi chú", "Người thực hiện"]
+COLUMNS = ["Thời gian", "Tên đàn", "Loại sự kiện", "Số lượng", "Lý do / Ghi chú", "Người thực hiện"]
 
 
 class HistoryView(QWidget):
@@ -71,7 +71,7 @@ class HistoryView(QWidget):
             type_label = FlockEventType.LABELS_VI.get(ev.event_type, ev.event_type)
             dt_str = ev.created_at.strftime("%Y-%m-%d %H:%M") if ev.created_at else ev.event_date.isoformat()
             set_row(self.table, row, [
-                dt_str, f.flock_code, f.name,
+                dt_str, f.name,
                 type_label, f"{ev.quantity:,} con", ev.reason or "-", ev.created_by or "System",
             ])
 

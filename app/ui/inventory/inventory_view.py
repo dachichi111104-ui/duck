@@ -14,7 +14,7 @@ from app.ui.inventory.item_form_dialog import ItemFormDialog
 from app.ui.inventory.transaction_dialog import TransactionDialog
 from app.config.constants import InventoryTransactionType
 
-ITEM_COLUMNS = ["Mã vật tư", "Tên vật tư", "Danh mục", "Tồn kho hiện tại", "Định mức tối thiểu", "Đơn giá", "Hạn sử dụng", "Trạng thái kho"]
+ITEM_COLUMNS = ["Tên vật tư", "Danh mục", "Tồn kho hiện tại", "Định mức tối thiểu", "Đơn giá", "Hạn sử dụng", "Trạng thái kho"]
 
 
 class InventoryView(QWidget):
@@ -72,7 +72,7 @@ class InventoryView(QWidget):
 
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Tìm theo mã, tên vật tư hoặc danh mục...")
+        self.search_input.setPlaceholderText("Tìm theo tên vật tư hoặc danh mục...")
         self.search_input.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.search_input, 2)
 
@@ -133,7 +133,7 @@ class InventoryView(QWidget):
                 status_str, tone = "In Stock", "success"
 
             set_row(self.table, row, [
-                i.code, i.name, i.category.name if i.category else "-",
+                i.name, i.category.name if i.category else "-",
                 f"{i.quantity} {i.unit}", f"{i.minimum_quantity} {i.unit}",
                 f"{i.unit_price:,.0f} đ", i.expiry_date.isoformat() if i.expiry_date else "-",
                 status_str,
@@ -217,7 +217,7 @@ class InventoryView(QWidget):
         c1_layout.addWidget(QLabel("<b>Vật tư chạm ngưỡng tồn tối thiểu (Low Stock Alerts)</b>"))
         if low_stock:
             for item in low_stock:
-                c1_layout.addWidget(QLabel(f"● <b>{item.name}</b> ({item.code}): còn {item.quantity} {item.unit} (định mức: {item.minimum_quantity})"))
+                c1_layout.addWidget(QLabel(f"● <b>{item.name}</b>: còn {item.quantity} {item.unit} (định mức: {item.minimum_quantity})"))
         else:
             c1_layout.addWidget(QLabel("Tất cả vật tư đều đạt định mức an toàn."))
         self._alerts_layout.addWidget(card1)
@@ -228,7 +228,7 @@ class InventoryView(QWidget):
         c2_layout.addWidget(QLabel("<b>Vật tư thuốc / vắc xin sắp hết hạn trong 30 ngày (Expiring Items)</b>"))
         if expiring:
             for item in expiring:
-                c2_layout.addWidget(QLabel(f"● <b>{item.name}</b> ({item.code}): ngày hết hạn {item.expiry_date}"))
+                c2_layout.addWidget(QLabel(f"● <b>{item.name}</b>: ngày hết hạn {item.expiry_date}"))
         else:
             c2_layout.addWidget(QLabel("Không có vật tư nào sắp hết hạn."))
         self._alerts_layout.addWidget(card2)

@@ -13,7 +13,7 @@ from app.ui.components.empty_state import EmptyState
 from app.ui.components.icons import get_icon
 from app.ui.cameras.camera_form_dialog import CameraFormDialog
 
-COLUMNS = ["Mã Camera", "Tên Camera", "Vị trí / Khu vực", "Stream URL", "Độ phân giải", "FPS", "Nhận diện AI", "Trạng thái"]
+COLUMNS = ["Tên Camera", "Vị trí / Khu vực", "Stream URL", "Độ phân giải", "FPS", "Nhận diện AI", "Trạng thái"]
 
 
 class CameraManagementView(QWidget):
@@ -28,7 +28,7 @@ class CameraManagementView(QWidget):
 
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Tìm kiếm camera theo mã, tên hoặc vị trí...")
+        self.search_input.setPlaceholderText("Tìm kiếm camera theo tên hoặc vị trí...")
         self.search_input.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.search_input, 2)
 
@@ -80,7 +80,7 @@ class CameraManagementView(QWidget):
         self.table.setRowCount(len(filtered))
         for row, c in enumerate(filtered):
             set_row(self.table, row, [
-                c.code, c.name, c.location, c.rtsp_url, c.resolution, c.fps,
+                c.name, c.location, c.rtsp_url, c.resolution, c.fps,
                 "BẬT" if c.ai_enabled else "TẮT", c.status,
             ], row_data=c.code)
 

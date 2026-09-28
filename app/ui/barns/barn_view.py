@@ -9,7 +9,7 @@ from app.ui.components.icons import get_icon
 from app.ui.barns.barn_form_dialog import BarnFormDialog
 from app.utils.validators import ValidationError
 
-COLUMNS = ["Mã chuồng", "Tên chuồng", "Vị trí", "Sức chứa", "Hiện tại", "Trạng thái"]
+COLUMNS = ["Tên chuồng", "Vị trí", "Sức chứa", "Hiện tại", "Trạng thái"]
 
 
 class BarnView(QWidget):
@@ -24,7 +24,7 @@ class BarnView(QWidget):
 
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Tìm theo mã hoặc tên chuồng...")
+        self.search_input.setPlaceholderText("Tìm theo tên chuồng hoặc vị trí...")
         self.search_input.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.search_input, 2)
 
@@ -69,7 +69,7 @@ class BarnView(QWidget):
         self.table.setRowCount(len(filtered))
         for row, b in enumerate(filtered):
             set_row(self.table, row, [
-                b.code, b.name, b.location or "-", b.capacity, b.current_count, b.status,
+                b.name, b.location or "-", b.capacity, b.current_count, b.status,
             ], row_data=b.id)
         self.table.setVisible(bool(filtered))
         self.empty_state.setVisible(not filtered)
