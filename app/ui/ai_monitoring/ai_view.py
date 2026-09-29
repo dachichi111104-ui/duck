@@ -123,11 +123,12 @@ class AIMonitoringView(QWidget):
         left_col.addWidget(choice_card)
 
         # Video Preview Frame (Dark #101512 with Visual AI Overlay)
-        preview_frame = QFrame()
-        preview_frame.setObjectName("VideoFrame")
-        preview_frame.setMinimumHeight(220)
+        self.preview_frame = QFrame()
+        self.preview_frame.setObjectName("VideoFrame")
+        self.preview_frame.setMinimumHeight(220)
+        self.preview_frame.setMaximumHeight(450)
 
-        preview_layout = QVBoxLayout(preview_frame)
+        preview_layout = QVBoxLayout(self.preview_frame)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
         self.preview_label = QLabel(
@@ -137,9 +138,10 @@ class AIMonitoringView(QWidget):
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet("color: #68736B; font-size: 11px; font-weight: 500;")
         self.preview_label.setMinimumHeight(200)
+        self.preview_label.setMaximumHeight(420)
         preview_layout.addWidget(self.preview_label)
 
-        left_col.addWidget(preview_frame, 1)
+        left_col.addWidget(self.preview_frame, 1)
 
         # Control Bar below video
         ctrl_card = QFrame()
@@ -450,8 +452,11 @@ class AIMonitoringView(QWidget):
         h, w, ch = rgb.shape
         q_img = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(q_img)
+        target_size = self.preview_frame.contentsRect().size()
+        if target_size.width() < 50 or target_size.height() < 50:
+            target_size = QSize(640, 360)
         self.preview_label.setPixmap(pixmap.scaled(
-            self.preview_label.size(),
+            target_size,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
         ))

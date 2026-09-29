@@ -106,12 +106,13 @@ class AIAnalysisService:
                     vet_rec = VeterinaryRecord(
                         flock_id=active_flock.id,
                         diagnosis_date=dt.date.today(),
-                        suspected_disease="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
-                        affected_count=1,
+                        diagnosis="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
+                        animal_reference="1 cá thể (AI)",
                         symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
-                        treatment_plan="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
-                        veterinarian_name=actor or "Hệ thống AI tự động",
+                        treatment="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
+                        veterinarian=actor or "Hệ thống AI tự động",
                         status=VetRecordStatus.THEO_DOI,
+                        source="AI_ANALYSIS",
                         notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
                     )
                     session.add(vet_rec)

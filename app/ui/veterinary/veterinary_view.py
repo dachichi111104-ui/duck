@@ -100,6 +100,20 @@ class VeterinaryView(QWidget):
 
     def refresh(self) -> None:
         self._all_records = self._service.list_records()
+
+        # Refresh flock filter options
+        current_flock_id = self.flock_filter.currentData()
+        self.flock_filter.blockSignals(True)
+        self.flock_filter.clear()
+        self.flock_filter.addItem("Tất cả các đàn vịt", None)
+        for f in self._flock_service.list_flocks():
+            self.flock_filter.addItem(f"{f.flock_code} — {f.name}", f.id)
+        if current_flock_id is not None:
+            idx = self.flock_filter.findData(current_flock_id)
+            if idx >= 0:
+                self.flock_filter.setCurrentIndex(idx)
+        self.flock_filter.blockSignals(False)
+
         self._update_kpi_row()
         self._apply_filter()
 
@@ -129,8 +143,12 @@ class VeterinaryView(QWidget):
                 source_label,
             ], row_data=r.id)
 
-        self.table.setVisible(bool(filtered))
-        self.empty_state.setVisible(not filtered)
+        if not self._all_records:
+            self.table.hide()
+            self.empty_state.show()
+        else:
+            self.table.show()
+            self.empty_state.hide()
 
     def _selected_record(self):
         row = self.table.currentRow()

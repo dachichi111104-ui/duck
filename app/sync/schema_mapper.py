@@ -297,15 +297,21 @@ def apply_remote_to_local(instance: Any, remote_data: dict[str, Any], session: A
             instance.note = remote_data.get("note") or remote_data.get("notes") or ""
 
     elif isinstance(instance, VeterinaryRecord):
-        if not getattr(instance, "examination_date", None):
-            e_date = remote_data.get("examination_date") or remote_data.get("date") or remote_data.get("created_at")
+        if not getattr(instance, "diagnosis_date", None):
+            e_date = remote_data.get("diagnosis_date") or remote_data.get("examination_date") or remote_data.get("date") or remote_data.get("created_at")
             if isinstance(e_date, str):
                 try:
-                    instance.examination_date = dt.datetime.fromisoformat(e_date.replace("Z", "+00:00"))
+                    instance.diagnosis_date = dt.date.fromisoformat(e_date[:10])
                 except Exception:
-                    instance.examination_date = dt.datetime.utcnow()
+                    instance.diagnosis_date = dt.date.today()
             else:
-                instance.examination_date = dt.datetime.utcnow()
+                instance.diagnosis_date = dt.date.today()
+        if "treatment_plan" in remote_data and not getattr(instance, "treatment", None):
+            instance.treatment = remote_data["treatment_plan"]
+        if "veterinarian_name" in remote_data and not getattr(instance, "veterinarian", None):
+            instance.veterinarian = remote_data["veterinarian_name"]
+        if "suspected_disease" in remote_data and not getattr(instance, "diagnosis", None):
+            instance.diagnosis = remote_data["suspected_disease"]
 
     elif isinstance(instance, Vaccination):
         if not getattr(instance, "vaccination_date", None):

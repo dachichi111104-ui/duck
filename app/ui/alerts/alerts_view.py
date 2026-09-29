@@ -12,6 +12,7 @@ from app.services.alert_service import AlertService
 from app.ui.components.table_helpers import build_table, set_row, get_row_data
 from app.ui.components.empty_state import EmptyState
 from app.ui.components.status_badge import StatusBadge
+from app.ui.components.icons import get_icon
 from app.config.constants import AlertSeverity, AlertStatus
 
 COLUMNS = ["Thời gian", "Loại cảnh báo", "Nguồn / Camera / Đàn", "Nội dung cảnh báo", "Mức độ", "Trạng thái"]

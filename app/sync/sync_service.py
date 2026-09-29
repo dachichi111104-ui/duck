@@ -166,6 +166,8 @@ class SyncWorker(QThread):
                 last_resp = resp
                 if resp and resp.status_code != 404:
                     return resp, cand_path
+            except AuthRequiredError:
+                raise
             except Exception as ex:
                 logger.warning("HTTP request exception on %s %s: %s", method, url_path, ex)
         return last_resp, candidates[0] if candidates else ""
