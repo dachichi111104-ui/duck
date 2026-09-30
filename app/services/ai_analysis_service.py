@@ -28,7 +28,7 @@ class AIAnalysisService:
     def get_video_metadata(self, video_path: str) -> VideoMetadata:
         return extract_metadata(video_path)
 
-    def run_analysis(self, actor: str, video_path: str, metadata: VideoMetadata) -> AIAnalysisSession:
+    def run_analysis(self, actor: str, video_path: str, metadata: VideoMetadata, flock_id: int | None = None, barn_id: int | None = None) -> AIAnalysisSession:
         """
         Executes AI analysis pipeline and runs the fully automated end-to-end workflow:
         1. Saves AI Analysis Session metadata.
@@ -100,12 +100,16 @@ class AIAnalysisService:
                     status=AlertStatus.UNREAD,
                 ))
 
-                # Auto-link draft Veterinary Record to active flock
-                active_flock = session.query(Flock).filter(Flock.status.in_(("ACTIVE", "ACTIVE", "Hoạt động"))).first()
-                if not active_flock:
-                    active_flock = session.query(Flock).first()
-                if not active_flock:
-                    active_flock = Flock(
+                # Link Veterinary Record to user-selected flock or active flock fallback
+                target_flock = None
+                if flock_id:
+                    target_flock = session.get(Flock, flock_id)
+                if not target_flock:
+                    target_flock = session.query(Flock).filter(Flock.status.in_(("ACTIVE", "ACTIVE", "Hoạt động"))).first()
+                if not target_flock:
+                    target_flock = session.query(Flock).first()
+                if not target_flock:
+                    target_flock = Flock(
                         flock_code="DV001",
                         name="Đàn Vịt Trời Mặc Định AI",
                         start_date=dt.date.today(),
@@ -114,11 +118,11 @@ class AIAnalysisService:
                         status="ACTIVE",
                         notes="Tự động tạo bởi hệ thống AI",
                     )
-                    session.add(active_flock)
+                    session.add(target_flock)
                     session.flush()
 
                 vet_rec = VeterinaryRecord(
-                    flock_id=active_flock.id,
+                    flock_id=target_flock.id,
                     diagnosis_date=dt.date.today(),
                     diagnosis="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
                     animal_reference="1 cá thể (AI)",

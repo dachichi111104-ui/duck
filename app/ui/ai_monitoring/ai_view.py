@@ -122,6 +122,31 @@ class AIMonitoringView(QWidget):
 
         left_col.addWidget(choice_card)
 
+        # Selection Card for Flock & Barn Context
+        context_card = QFrame()
+        context_card.setObjectName("Card")
+        ctx_layout = QHBoxLayout(context_card)
+        ctx_layout.setContentsMargins(8, 6, 8, 6)
+        ctx_layout.setSpacing(8)
+
+        flock_lbl = QLabel("<b>Đàn vịt:</b>")
+        flock_lbl.setStyleSheet("font-size: 11px;")
+        ctx_layout.addWidget(flock_lbl)
+        self.flock_combo = QComboBox()
+        self.flock_combo.setMinimumWidth(150)
+        self.flock_combo.setStyleSheet("font-size: 11px;")
+        ctx_layout.addWidget(self.flock_combo, 1)
+
+        barn_lbl = QLabel("<b>Chuồng nuôi:</b>")
+        barn_lbl.setStyleSheet("font-size: 11px;")
+        ctx_layout.addWidget(barn_lbl)
+        self.barn_combo = QComboBox()
+        self.barn_combo.setMinimumWidth(150)
+        self.barn_combo.setStyleSheet("font-size: 11px;")
+        ctx_layout.addWidget(self.barn_combo, 1)
+
+        left_col.addWidget(context_card)
+
         # Video Preview Frame (Dark #101512 with Visual AI Overlay)
         self.preview_frame = QFrame()
         self.preview_frame.setObjectName("VideoFrame")
@@ -366,8 +391,16 @@ class AIMonitoringView(QWidget):
     def _execute_analysis(self) -> None:
         try:
             metadata = getattr(self, "_current_metadata", None) or extract_metadata(self._selected_video_path)
+            flock_id = self.flock_combo.currentData()
+            barn_id = self.barn_combo.currentData()
             try:
-                session = self._service.run_analysis(self.current_user.username, self._selected_video_path, metadata)
+                session = self._service.run_analysis(
+                    self.current_user.username,
+                    self._selected_video_path,
+                    metadata,
+                    flock_id=flock_id,
+                    barn_id=barn_id,
+                )
             except Exception as exc:
                 QMessageBox.critical(self, "Lỗi phân tích", f"Không thể lưu phiên phân tích: {exc}")
                 return
@@ -517,7 +550,46 @@ class AIMonitoringView(QWidget):
         self.history_table.setVisible(bool(sessions))
         self.history_empty.setVisible(not sessions)
 
+    def _populate_flock_barn_combos(self) -> None:
+        from app.services.flock_service import FlockService
+        from app.services.barn_service import BarnService
+
+        curr_flock = self.flock_combo.currentData()
+        curr_barn = self.barn_combo.currentData()
+
+        self.flock_combo.clear()
+        self.barn_combo.clear()
+
+        self.flock_combo.addItem("-- Tự động chọn Đàn vịt --", None)
+        self.barn_combo.addItem("-- Tự động chọn Chuồng --", None)
+
+        try:
+            flocks = FlockService().list_flocks()
+            for f in flocks:
+                code_str = f" ({f.flock_code})" if getattr(f, "flock_code", None) else ""
+                self.flock_combo.addItem(f"{f.name}{code_str}", f.id)
+        except Exception:
+            pass
+
+        try:
+            barns = BarnService().list_barns()
+            for b in barns:
+                code_str = f" ({b.code})" if getattr(b, "code", None) else ""
+                self.barn_combo.addItem(f"{b.name}{code_str}", b.id)
+        except Exception:
+            pass
+
+        if curr_flock is not None:
+            idx = self.flock_combo.findData(curr_flock)
+            if idx >= 0:
+                self.flock_combo.setCurrentIndex(idx)
+        if curr_barn is not None:
+            idx = self.barn_combo.findData(curr_barn)
+            if idx >= 0:
+                self.barn_combo.setCurrentIndex(idx)
+
     def refresh(self) -> None:
+        self._populate_flock_barn_combos()
         self._refresh_history()
 
     def closeEvent(self, event):
