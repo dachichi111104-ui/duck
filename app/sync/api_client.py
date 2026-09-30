@@ -68,7 +68,7 @@ class APIClient:
         payload = {"username": username, "password": password}
         try:
             resp = requests.post(login_url, json=payload, timeout=10)
-            if resp.status_code != 200:
+            if resp.status_code == 415:
                 # Try form-data payload in case backend uses OAuth2PasswordRequestForm
                 resp = requests.post(login_url, data=payload, timeout=10)
 

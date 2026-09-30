@@ -94,6 +94,13 @@ def serialize_model(instance: Any, session: Any = None) -> dict[str, Any]:
         if "scheduled_date" not in data or not data["scheduled_date"]:
             data["scheduled_date"] = instance.vaccination_date.isoformat() if getattr(instance, "vaccination_date", None) else dt.date.today().isoformat()
 
+    elif isinstance(instance, AIAnalysisSession):
+        data["video_filename"] = getattr(instance, "file_name", None) or getattr(instance, "video_path", None) or "video.mp4"
+        data["duration_seconds"] = float(getattr(instance, "duration", 0.0) or getattr(instance, "duration_seconds", 0.0) or 0.0)
+        data["total_ducks_detected"] = len(getattr(instance, "detections", [])) if hasattr(instance, "detections") else 0
+        data["abnormal_count"] = sum(1 for d in getattr(instance, "detections", []) if "bệnh" in str(getattr(d, "behavior_label", "")).lower() or "ngửa" in str(getattr(d, "behavior_label", "")).lower()) if hasattr(instance, "detections") else 0
+        data["status"] = getattr(instance, "status", "COMPLETED") or "COMPLETED"
+
     elif isinstance(instance, AIDetectionResult):
         data["session_id"] = getattr(instance, "session_id", 1) or 1
         data["frame_index"] = getattr(instance, "frame_index", 0) or 0
