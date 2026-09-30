@@ -61,9 +61,10 @@ def session_scope() -> Generator[Session, None, None]:
     try:
         yield session
         session.commit()
-    except Exception:
+    except Exception as exc:
         session.rollback()
-        logger.exception("Database transaction failed, rolled back.")
+        if exc.__class__.__name__ != "AuthRequiredError":
+            logger.exception("Database transaction failed, rolled back.")
         raise
     finally:
         session.close()
