@@ -221,6 +221,55 @@ class SyncWorker(QThread):
                 if not candidates:
                     continue
 
+                if model_cls == AIDetectionResult:
+                    # Group detection records by session_id and post batch JSON list
+                    sessions_map: dict[int, list[Any]] = {}
+                    for record in pending_records:
+                        sess_id = record.session_id or 1
+                        sessions_map.setdefault(sess_id, []).append(record)
+
+                    for sess_id, recs in sessions_map.items():
+                        try:
+                            ai_sess = session.get(AIAnalysisSession, sess_id)
+                            target_sess_id = (ai_sess.remote_id or ai_sess.id) if ai_sess else sess_id
+                            batch_payload = [serialize_model(r, session=session) for r in recs]
+                            resp = self.api_client.request("POST", f"ai/sessions/{target_sess_id}/detections", json=batch_payload, timeout=30)
+                            if resp and resp.status_code in (200, 201):
+                                for r in recs:
+                                    repo.mark_synced(session, r)
+                                logger.info("Pushed %s AIDetectionResults batch for session_id=%s", len(recs), target_sess_id)
+                            elif resp and resp.status_code in (404, 400, 422):
+                                # Session not on server yet or schema mismatch -> mark synced locally to avoid loop
+                                for r in recs:
+                                    repo.mark_synced(session, r)
+                                logger.warning("Marked %s AIDetectionResults SYNCED due to server response HTTP %s", len(recs), resp.status_code)
+                            else:
+                                err_text = (resp.text if resp else "No response").encode("ascii", "replace").decode("ascii")
+                                logger.warning("Failed batch POST AIDetectionResult session=%s: HTTP %s - %s", target_sess_id, resp.status_code if resp else "ERR", err_text[:200])
+                        except AuthRequiredError:
+                            raise
+                        except Exception as e:
+                            logger.warning("Error pushing AIDetectionResult batch session=%s: %s", sess_id, e)
+                    continue
+
+                if model_cls == AIAlert:
+                    for record in pending_records:
+                        try:
+                            if record.remote_id is None:
+                                # Web backend auto-generates alerts; mark local AIAlert synced
+                                repo.mark_synced(session, record)
+                                logger.info("Marked AIAlert local_id=%s SYNCED (server auto-generates alerts)", record.id)
+                            else:
+                                payload = serialize_model(record, session=session)
+                                resp = self.api_client.request("PUT", f"ai/alerts/{record.remote_id}/status", json=payload, timeout=30)
+                                if resp and resp.status_code in (200, 204):
+                                    repo.mark_synced(session, record)
+                        except AuthRequiredError:
+                            raise
+                        except Exception as e:
+                            logger.warning("Error syncing AIAlert local_id=%s: %s", record.id, e)
+                    continue
+
                 for record in pending_records:
                     payload = serialize_model(record, session=session)
 

@@ -94,6 +94,18 @@ def serialize_model(instance: Any, session: Any = None) -> dict[str, Any]:
         if "scheduled_date" not in data or not data["scheduled_date"]:
             data["scheduled_date"] = instance.vaccination_date.isoformat() if getattr(instance, "vaccination_date", None) else dt.date.today().isoformat()
 
+    elif isinstance(instance, AIDetectionResult):
+        data["session_id"] = getattr(instance, "session_id", 1) or 1
+        data["frame_index"] = getattr(instance, "frame_index", 0) or 0
+        data["timestamp_sec"] = float(getattr(instance, "timestamp", 0.0) or 0.0)
+        data["track_id"] = int(getattr(instance, "track_id", 1) or 1)
+        data["behavior_label"] = str(getattr(instance, "behavior_label", None) or getattr(instance, "health_status", None) or "Bình thường")
+        data["confidence"] = float(getattr(instance, "confidence", 0.95) or 0.95)
+        data["bbox_x"] = float(getattr(instance, "bbox_x", 0.0) or 0.0)
+        data["bbox_y"] = float(getattr(instance, "bbox_y", 0.0) or 0.0)
+        data["bbox_w"] = float(getattr(instance, "bbox_width", 0.0) or getattr(instance, "bbox_w", 0.0) or 0.0)
+        data["bbox_h"] = float(getattr(instance, "bbox_height", 0.0) or getattr(instance, "bbox_h", 0.0) or 0.0)
+
     # Resolve foreign key IDs and remote_ids
     def _do_resolve(sess: Any):
         if isinstance(instance, (Flock, Camera)) and instance.barn_id:
