@@ -92,6 +92,10 @@ class AuthService:
             if user.status != UserStatus.ACTIVE:
                 raise AuthError("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.")
 
+            # Always store credentials hint locally so background SyncWorker can auto-authenticate when online
+            from app.sync.token_manager import TokenManager
+            TokenManager().save_credentials(username, password)
+
             current = CurrentUser(
                 id=user.id, username=user.username, full_name=user.full_name,
                 role_name=user.role.name,

@@ -110,6 +110,19 @@ class SyncWorker(QThread):
                 total_conflicts += len(repo.get_conflicts(session))
         return total_pending, total_conflicts
 
+    def _ensure_authenticated(self) -> bool:
+        if not self.api_client.token_manager.get_access_token():
+            u, p = self.api_client.token_manager.get_credentials()
+            if u and p:
+                try:
+                    self.api_client.login(u, p)
+                    logger.info("Auto-authenticated sync session for user=%s", u)
+                    return True
+                except Exception as ex:
+                    logger.warning("Auto-authentication attempt failed for user=%s: %s", u, ex)
+            return False
+        return True
+
     def perform_sync_cycle(self):
         health = self.api_client.check_health()
         if not health["online"]:
@@ -117,15 +130,24 @@ class SyncWorker(QThread):
             self.sync_status_changed.emit("OFFLINE", "Mất kết nối API", pending, conflicts)
             return
 
+        self._ensure_authenticated()
+
         pending, conflicts = self.count_pending_and_conflicts()
         if pending > 0 or conflicts > 0:
             self.sync_status_changed.emit("SYNCING", "Đang đồng bộ...", pending, conflicts)
 
-        # 1. PUSH local PENDING changes to remote API
-        self.push_pending_records()
-
-        # 2. PULL remote updates to local SQLite
-        self.pull_remote_updates()
+        try:
+            # 1. PUSH local PENDING changes to remote API
+            self.push_pending_records()
+            # 2. PULL remote updates to local SQLite
+            self.pull_remote_updates()
+        except AuthRequiredError:
+            # Attempt auto-login retry once
+            if self._ensure_authenticated():
+                self.push_pending_records()
+                self.pull_remote_updates()
+            else:
+                raise
 
         # 3. Final state check
         pending_after, conflicts_after = self.count_pending_and_conflicts()

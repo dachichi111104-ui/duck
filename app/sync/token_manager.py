@@ -64,3 +64,20 @@ class TokenManager:
     def get_saved_user(self) -> dict[str, Any] | None:
         data = self.load_tokens()
         return data.get("user_data") if data else None
+
+    def save_credentials(self, username: str, password: str) -> None:
+        data = self.load_tokens() or {}
+        data["username"] = username
+        data["password"] = password
+        try:
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error("Failed to save session credentials: %s", e)
+
+    def get_credentials(self) -> tuple[str | None, str | None]:
+        data = self.load_tokens()
+        if data and "username" in data and "password" in data:
+            return data.get("username"), data.get("password")
+        return None, None

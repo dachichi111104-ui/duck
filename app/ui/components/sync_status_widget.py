@@ -88,7 +88,10 @@ class SyncStatusWidget(QWidget):
     def _trigger_manual_sync(self):
         from app.sync.sync_service import SyncService
         self.update_status(state="SYNCING", message="Đang kích hoạt đồng bộ...")
-        SyncService.get_instance().trigger_sync_now()
+        service = SyncService.get_instance()
+        if hasattr(service, "worker") and service.worker:
+            service.worker._ensure_authenticated()
+        service.trigger_sync_now()
 
     def update_status(self, state: str, message: str = "", pending_count: int = 0, conflict_count: int = 0) -> None:
         """

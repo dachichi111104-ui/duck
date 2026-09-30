@@ -171,6 +171,46 @@ class PlaceholderAIService(AIServiceBase):
             },
             message="Đã hoàn thành phân tích AI (Khung hình & Tọa độ Bounding Box mô phỏng sẵn sàng)."
         )
+def _patch_torchvision_nms():
+    try:
+        import torch
+        import torchvision
+        orig_nms = getattr(torchvision.ops, "nms", None)
+
+        def safe_nms(boxes, scores, iou_threshold):
+            try:
+                if orig_nms is not None:
+                    return orig_nms(boxes, scores, iou_threshold)
+            except Exception:
+                pass
+            if boxes.numel() == 0:
+                return torch.empty((0,), dtype=torch.int64, device=boxes.device)
+            x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+            areas = (x2 - x1) * (y2 - y1)
+            order = scores.argsort(descending=True)
+            keep = []
+            while order.numel() > 0:
+                if order.numel() == 1:
+                    keep.append(order.item())
+                    break
+                i = order[0].item()
+                keep.append(i)
+                xx1 = torch.maximum(x1[i], x1[order[1:]])
+                yy1 = torch.maximum(y1[i], y1[order[1:]])
+                xx2 = torch.minimum(x2[i], x2[order[1:]])
+                yy2 = torch.minimum(y2[i], y2[order[1:]])
+                w = torch.maximum(torch.tensor(0.0, device=boxes.device), xx2 - xx1)
+                h = torch.maximum(torch.tensor(0.0, device=boxes.device), yy2 - yy1)
+                inter = w * h
+                ovr = inter / (areas[i] + areas[order[1:]] - inter)
+                inds = torch.where(ovr <= iou_threshold)[0]
+                order = order[inds + 1]
+            return torch.tensor(keep, dtype=torch.int64, device=boxes.device)
+
+        torchvision.ops.nms = safe_nms
+        torchvision.ops.boxes.nms = safe_nms
+    except Exception:
+        pass
 
 
 class RealAIService(AIServiceBase):
@@ -306,48 +346,6 @@ class RealAIService(AIServiceBase):
             },
             message=f"Hoàn tất phân tích video bằng model Lật ngửa: phát hiện {sick_count} cá thể nghi ngờ lật ngửa."
         )
-
-def _patch_torchvision_nms():
-    try:
-        import torch
-        import torchvision
-        orig_nms = getattr(torchvision.ops, "nms", None)
-
-        def safe_nms(boxes, scores, iou_threshold):
-            try:
-                if orig_nms is not None:
-                    return orig_nms(boxes, scores, iou_threshold)
-            except Exception:
-                pass
-            if boxes.numel() == 0:
-                return torch.empty((0,), dtype=torch.int64, device=boxes.device)
-            x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
-            areas = (x2 - x1) * (y2 - y1)
-            order = scores.argsort(descending=True)
-            keep = []
-            while order.numel() > 0:
-                if order.numel() == 1:
-                    keep.append(order.item())
-                    break
-                i = order[0].item()
-                keep.append(i)
-                xx1 = torch.maximum(x1[i], x1[order[1:]])
-                yy1 = torch.maximum(y1[i], y1[order[1:]])
-                xx2 = torch.minimum(x2[i], x2[order[1:]])
-                yy2 = torch.minimum(y2[i], y2[order[1:]])
-                w = torch.maximum(torch.tensor(0.0, device=boxes.device), xx2 - xx1)
-                h = torch.maximum(torch.tensor(0.0, device=boxes.device), yy2 - yy1)
-                inter = w * h
-                ovr = inter / (areas[i] + areas[order[1:]] - inter)
-                inds = torch.where(ovr <= iou_threshold)[0]
-                order = order[inds + 1]
-            return torch.tensor(keep, dtype=torch.int64, device=boxes.device)
-
-        torchvision.ops.nms = safe_nms
-        torchvision.ops.boxes.nms = safe_nms
-    except Exception:
-        pass
-
 
     def _analyze_image(self, image_path: str) -> AIAnalysisResult:
         import cv2
