@@ -75,7 +75,7 @@ class AuthService:
                         role = RoleRepository().get_all(session)[0]
                     user = User(
                         username=username,
-                        password_hash=hash_password(password),
+                        password_hash=hash_password(web_password),
                         full_name=user_info.get("full_name") or username,
                         email=user_info.get("email"),
                         phone=user_info.get("phone"),
@@ -87,8 +87,8 @@ class AuthService:
                     session.add(user)
                     session.flush()
                 else:
-                    # Keep local user hash in sync
-                    user.password_hash = hash_password(password)
+                    # Keep local user hash in sync with web password
+                    user.password_hash = hash_password(web_password)
 
                 TokenManager().save_credentials(username, web_password)
 
