@@ -112,6 +112,7 @@ class APIClient:
         except Exception as e:
             logger.error("Error refreshing token: %s", e)
 
+        self.token_manager.clear_tokens()
         raise AuthRequiredError("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.")
 
     def _get_headers(self) -> dict[str, str]:
