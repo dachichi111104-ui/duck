@@ -89,9 +89,9 @@ class VeterinaryView(QWidget):
                 item.widget().deleteLater()
 
         total = len(self._all_records)
-        theo_doi = sum(1 for r in self._all_records if r.status in (VetRecordStatus.THEO_DOI, "UNDER_MONITORING"))
-        dieu_tri = sum(1 for r in self._all_records if r.status == VetRecordStatus.DANG_DIEU_TRI)
-        da_khoi = sum(1 for r in self._all_records if r.status == VetRecordStatus.DA_KHOI)
+        theo_doi = sum(1 for r in self._all_records if str(r.status).upper() in ("THEO_DOI", "MONITORING", "UNDER_MONITORING"))
+        dieu_tri = sum(1 for r in self._all_records if str(r.status).upper() in ("DANG_DIEU_TRI", "TREATING", "ACTIVE_TREATMENT"))
+        da_khoi = sum(1 for r in self._all_records if str(r.status).upper() in ("DA_KHOI", "RECOVERED", "HEALED"))
 
         self.kpi_layout.addWidget(KpiCard("TOTAL HEALTH RECORDS", f"{total} bệnh án", "fa5s.user-md", "#2E7D32"))
         self.kpi_layout.addWidget(KpiCard("UNDER MONITORING", f"{theo_doi} cá thể", "fa5s.eye", "#F4A62D" if theo_doi > 0 else "#2E7D32"))
@@ -117,19 +117,35 @@ class VeterinaryView(QWidget):
         self._update_kpi_row()
         self._apply_filter()
 
+    def _matches_status(self, r_status: str | None, sel_status: str | None) -> bool:
+        if not sel_status:
+            return True
+        s = str(r_status or "").upper()
+        target = str(sel_status).upper()
+
+        if target in ("THEO_DOI", "MONITORING", "UNDER_MONITORING"):
+            return s in ("THEO_DOI", "MONITORING", "UNDER_MONITORING")
+        if target in ("DANG_DIEU_TRI", "TREATING", "ACTIVE_TREATMENT"):
+            return s in ("DANG_DIEU_TRI", "TREATING", "ACTIVE_TREATMENT")
+        if target in ("DA_KHOI", "RECOVERED", "HEALED"):
+            return s in ("DA_KHOI", "RECOVERED", "HEALED")
+        if target in ("CAN_TAI_KHAM", "CULLED", "REEXAMINE"):
+            return s in ("CAN_TAI_KHAM", "CULLED", "REEXAMINE")
+        return s == target
+
     def _apply_filter(self) -> None:
         flock_id = self.flock_filter.currentData()
         status = self.status_filter.currentData()
         filtered = [
             r for r in self._all_records
-            if (not flock_id or r.flock_id == flock_id) and
-               (not status or r.status == status or (status == VetRecordStatus.THEO_DOI and r.status in (VetRecordStatus.THEO_DOI, "UNDER_MONITORING")))
+            if (not flock_id or r.flock_id == flock_id) and self._matches_status(r.status, status)
         ]
         self.table.setRowCount(len(filtered))
 
         for row, r in enumerate(filtered):
             source_label = "AI Analysis" if r.source == "AI_ANALYSIS" else "Thủ công"
-            st_text = VetRecordStatus.LABELS_VI.get(r.status, "Theo dõi" if r.status == "UNDER_MONITORING" else r.status)
+            st_key = str(r.status or "").upper()
+            st_text = VetRecordStatus.LABELS_VI.get(st_key, VetRecordStatus.LABELS_VI.get(r.status, r.status or "Theo dõi"))
 
             set_row(self.table, row, [
                 r.diagnosis_date.isoformat(),

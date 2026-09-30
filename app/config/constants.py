@@ -120,9 +120,16 @@ class VetRecordStatus:
 
     LABELS_VI = {
         THEO_DOI: "Theo dõi",
+        "MONITORING": "Theo dõi",
+        "UNDER_MONITORING": "Theo dõi",
         DANG_DIEU_TRI: "Đang điều trị",
+        "TREATING": "Đang điều trị",
+        "ACTIVE_TREATMENT": "Đang điều trị",
         DA_KHOI: "Đã khỏi",
+        "RECOVERED": "Đã khỏi",
+        "HEALED": "Đã khỏi",
         CAN_TAI_KHAM: "Cần tái khám",
+        "CULLED": "Loại thải / Tái khám",
     }
 
 

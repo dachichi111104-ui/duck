@@ -72,9 +72,14 @@ class InventoryView(QWidget):
 
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Tìm theo tên vật tư hoặc danh mục...")
+        self.search_input.setPlaceholderText("Tìm theo tên vật tư hoặc mã...")
         self.search_input.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.search_input, 2)
+
+        self.category_filter = QComboBox()
+        self.category_filter.addItem("Tất cả danh mục", None)
+        self.category_filter.currentIndexChanged.connect(self._apply_filter)
+        toolbar.addWidget(self.category_filter, 1)
 
         add_btn = QPushButton("Thêm vật tư mới")
         add_btn.setIcon(get_icon("fa5s.plus", color="#FFFFFF"))
@@ -119,9 +124,12 @@ class InventoryView(QWidget):
 
     def _apply_filter(self) -> None:
         text = self.search_input.text().strip().lower()
+        cat_id = self.category_filter.currentData()
+
         filtered = [
             i for i in self._all_items
-            if not text or text in i.code.lower() or text in i.name.lower() or (i.category and text in i.category.name.lower())
+            if (not text or text in getattr(i, "code", "").lower() or text in i.name.lower() or (i.category and text in i.category.name.lower()))
+            and (not cat_id or i.category_id == cat_id)
         ]
         self.table.setRowCount(len(filtered))
         for row, i in enumerate(filtered):
@@ -237,6 +245,23 @@ class InventoryView(QWidget):
 
     def refresh(self) -> None:
         self._all_items = self._service.list_items()
+
+        # Populate Category Filter Dropdown
+        curr_cat_id = self.category_filter.currentData()
+        self.category_filter.blockSignals(True)
+        self.category_filter.clear()
+        self.category_filter.addItem("Tất cả danh mục", None)
+        try:
+            for cat in self._service.list_categories():
+                self.category_filter.addItem(cat.name, cat.id)
+        except Exception:
+            pass
+        if curr_cat_id is not None:
+            idx = self.category_filter.findData(curr_cat_id)
+            if idx >= 0:
+                self.category_filter.setCurrentIndex(idx)
+        self.category_filter.blockSignals(False)
+
         self._update_kpi_row()
         self._apply_filter()
         self._refresh_transactions()
