@@ -101,21 +101,35 @@ class AIAnalysisService:
                 ))
 
                 # Auto-link draft Veterinary Record to active flock
-                active_flock = session.query(Flock).filter(Flock.status == "ACTIVE").first()
-                if active_flock:
-                    vet_rec = VeterinaryRecord(
-                        flock_id=active_flock.id,
-                        diagnosis_date=dt.date.today(),
-                        diagnosis="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
-                        animal_reference="1 cá thể (AI)",
-                        symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
-                        treatment="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
-                        veterinarian=actor or "Hệ thống AI tự động",
-                        status=VetRecordStatus.THEO_DOI,
-                        source="AI_ANALYSIS",
-                        notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
+                active_flock = session.query(Flock).filter(Flock.status.in_(("ACTIVE", "ACTIVE", "Hoạt động"))).first()
+                if not active_flock:
+                    active_flock = session.query(Flock).first()
+                if not active_flock:
+                    active_flock = Flock(
+                        flock_code="DV001",
+                        name="Đàn Vịt Trời Mặc Định AI",
+                        start_date=dt.date.today(),
+                        initial_count=500,
+                        current_count=500,
+                        status="ACTIVE",
+                        notes="Tự động tạo bởi hệ thống AI",
                     )
-                    session.add(vet_rec)
+                    session.add(active_flock)
+                    session.flush()
+
+                vet_rec = VeterinaryRecord(
+                    flock_id=active_flock.id,
+                    diagnosis_date=dt.date.today(),
+                    diagnosis="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
+                    animal_reference="1 cá thể (AI)",
+                    symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
+                    treatment="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
+                    veterinarian=actor or "Hệ thống AI tự động",
+                    status=VetRecordStatus.THEO_DOI,
+                    source="AI_ANALYSIS",
+                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
+                )
+                session.add(vet_rec)
             else:
                 session.add(Notification(
                     alert_type=AlertType.VIDEO_ANALYSIS_DONE,

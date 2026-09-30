@@ -55,6 +55,28 @@ class SyncStatusWidget(QWidget):
         self.conflict_btn.hide()
         layout.addWidget(self.conflict_btn)
 
+        self.reauth_btn = QPushButton("Đăng nhập Web")
+        self.reauth_btn.setIcon(get_icon("fa5s.key", color="#FFFFFF"))
+        self.reauth_btn.setIconSize(QSize(11, 11))
+        self.reauth_btn.setObjectName("DangerButton")
+        self.reauth_btn.setFixedSize(120, 22)
+        self.reauth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.reauth_btn.setStyleSheet("""
+            QPushButton#DangerButton {
+                background-color: #D32F2F;
+                color: #FFFFFF;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 700;
+            }
+            QPushButton#DangerButton:hover {
+                background-color: #B71C1C;
+            }
+        """)
+        self.reauth_btn.clicked.connect(self._open_web_login)
+        self.reauth_btn.hide()
+        layout.addWidget(self.reauth_btn)
+
         self.sync_now_btn = QPushButton(" Đồng bộ ngay")
         self.sync_now_btn.setIcon(get_icon("fa5s.sync", color="#2E7D32"))
         self.sync_now_btn.setIconSize(QSize(11, 11))
@@ -85,12 +107,20 @@ class SyncStatusWidget(QWidget):
 
         self.update_status(state="SYNCED", message="Đã đồng bộ với server", pending_count=0, conflict_count=0)
 
+    def _open_web_login(self) -> None:
+        from app.ui.components.web_login_dialog import WebLoginDialog
+        dlg = WebLoginDialog(parent=self)
+        if dlg.exec():
+            self._trigger_manual_sync()
+
     def _trigger_manual_sync(self):
         from app.sync.sync_service import SyncService
-        self.update_status(state="SYNCING", message="Đang kích hoạt đồng bộ...")
         service = SyncService.get_instance()
         if hasattr(service, "worker") and service.worker:
-            service.worker._ensure_authenticated()
+            if not service.worker._ensure_authenticated():
+                self._open_web_login()
+                return
+        self.update_status(state="SYNCING", message="Đang kích hoạt đồng bộ...")
         service.trigger_sync_now()
 
     def update_status(self, state: str, message: str = "", pending_count: int = 0, conflict_count: int = 0) -> None:
@@ -98,6 +128,7 @@ class SyncStatusWidget(QWidget):
         State options: SYNCED, SYNCING, OFFLINE, CONFLICT, AUTH_ERROR
         """
         self.conflict_btn.hide()
+        self.reauth_btn.hide()
 
         if conflict_count > 0 or state == "CONFLICT":
             self.icon_label.setPixmap(get_icon("fa5s.exclamation-triangle", color="#D32F2F").pixmap(QSize(14, 14)))
@@ -122,6 +153,7 @@ class SyncStatusWidget(QWidget):
             self.icon_label.setPixmap(get_icon("fa5s.lock", color="#D32F2F").pixmap(QSize(14, 14)))
             self.status_label.setText("Hết hạn phiên làm việc — Cần đăng nhập lại")
             self.status_label.setStyleSheet("font-size: 11px; font-weight: 700; color: #D32F2F;")
+            self.reauth_btn.show()
 
         else:  # SYNCED / ONLINE
             self.icon_label.setPixmap(get_icon("fa5s.check-circle", color="#2E7D32").pixmap(QSize(14, 14)))
