@@ -69,6 +69,11 @@ def test_veterinary_record_dialog_role_assignment(qapp):
     dlg_vet = VeterinaryRecordDialog(vet_user)
     assert "Bác sĩ thú y" in dlg_vet.veterinarian_combo.currentText()
 
+    # Test backward compatibility wrapper
+    dlg_vet.veterinarian_input.setText("BS. Test Specialist")
+    assert "BS. Test Specialist" in dlg_vet.veterinarian_combo.currentText()
+    assert dlg_vet.veterinarian_input.text() == "BS. Test Specialist"
+
 
 def test_vaccination_dialog_role_assignment(qapp):
     admin_user = CurrentUser(id=1, username="admin", full_name="Quản trị viên", role_name=Roles.ADMIN)
@@ -78,6 +83,11 @@ def test_vaccination_dialog_role_assignment(qapp):
     vet_user = CurrentUser(id=4, username="vet", full_name="Bác sĩ thú y", role_name=Roles.VETERINARIAN)
     dlg_vet = VaccinationDialog(vet_user)
     assert "Bác sĩ thú y" in dlg_vet.veterinarian_combo.currentText()
+
+    # Test backward compatibility wrapper
+    dlg_vet.veterinarian_input.setText("BS. Vaccinator")
+    assert "BS. Vaccinator" in dlg_vet.veterinarian_combo.currentText()
+    assert dlg_vet.veterinarian_input.text() == "BS. Vaccinator"
 
 
 def test_view_button_permissions_for_staff(qapp):

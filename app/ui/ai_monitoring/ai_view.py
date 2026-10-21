@@ -504,6 +504,7 @@ class AIMonitoringView(QWidget):
 
     def _open_veterinary_form(self) -> None:
         from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
+        from app.config.constants import Roles
         dlg = VeterinaryRecordDialog(self.current_user, parent=self)
         if self._selected_video_path:
             dlg.symptoms_input.setPlainText(
@@ -512,7 +513,8 @@ class AIMonitoringView(QWidget):
             )
             dlg.diagnosis_input.setPlainText("Hành vi bất thường: Té ngã / Lật ngửa / Bất động (AI)")
             dlg.treatment_input.setPlainText("Cách ly theo dõi cá thể có hành vi bất thường, kiểm tra sức khỏe và hỗ trợ hồi phục.")
-            dlg.veterinarian_input.setText(self.current_user.full_name or self.current_user.username)
+            if self.current_user.role_name == Roles.VETERINARIAN:
+                dlg.set_veterinarian(self.current_user.full_name or self.current_user.username)
         if dlg.exec():
             QMessageBox.information(
                 self,

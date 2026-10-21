@@ -129,6 +129,33 @@ class VeterinaryRecordDialog(QDialog):
             elif self.vets_list:
                 self.veterinarian_combo.setCurrentIndex(0)
 
+    def set_veterinarian(self, vet_name: str) -> None:
+        """Helper to programmatically select or set attending veterinarian."""
+        if not vet_name:
+            return
+        idx = -1
+        for i in range(self.veterinarian_combo.count()):
+            if self.veterinarian_combo.itemData(i) == vet_name or self.veterinarian_combo.itemText(i) == vet_name:
+                idx = i
+                break
+        if idx >= 0:
+            self.veterinarian_combo.setCurrentIndex(idx)
+        else:
+            self.veterinarian_combo.addItem(vet_name, vet_name)
+            self.veterinarian_combo.setCurrentIndex(self.veterinarian_combo.count() - 1)
+
+    @property
+    def veterinarian_input(self):
+        """Backward-compatibility adapter for callers expecting a QLineEdit-like interface."""
+        class _VetInputWrapper:
+            def __init__(self, dialog):
+                self._dialog = dialog
+            def setText(self, text):
+                self._dialog.set_veterinarian(text)
+            def text(self):
+                return self._dialog.veterinarian_combo.currentData() or self._dialog.veterinarian_combo.currentText().strip()
+        return _VetInputWrapper(self)
+
     def _save(self) -> None:
         try:
             vet_val = self.veterinarian_combo.currentData()
