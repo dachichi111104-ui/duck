@@ -248,7 +248,7 @@ class MultiBarnSimulationWidget(QWidget):
 
             # CONSECUTIVE FRAME ALERT FILTER: Only alert when >= 5 consecutive frames!
             if self._consecutive_sick_counts[idx] >= 5:
-                status_str = "CẢNH BÁO: Nghi Bệnh Lật ngửa"
+                status_str = "CẢNH BÁO: Hành vi bất thường"
                 tone = "danger"
 
             # Render frame to PyQt QLabel

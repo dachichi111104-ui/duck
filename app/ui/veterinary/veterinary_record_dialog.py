@@ -32,8 +32,7 @@ class VeterinaryRecordDialog(QDialog):
         self.disease_combo = QComboBox()
         self.disease_combo.addItem("(Chưa xác định)", None)
         for d in self._service.list_diseases():
-            suffix = " (AI giám sát tự động)" if "lật ngửa" in d.name.lower() else ""
-            self.disease_combo.addItem(f"{d.name}{suffix}", d.id)
+            self.disease_combo.addItem(d.name, d.id)
 
         self.animal_ref_input = QLineEdit()
         self.animal_ref_input.setPlaceholderText("Ví dụ: Cá thể #12 (tùy chọn)")

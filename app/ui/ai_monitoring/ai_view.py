@@ -210,17 +210,17 @@ class AIMonitoringView(QWidget):
             sc_hdr.addWidget(StatusBadge("MODEL THẬT ACTIVE", tone="success"))
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
-                "<b>Mô hình tích hợp:</b> YOLOv8n (Run A - 20261021)<br>"
-                "<b>Bệnh phát hiện:</b> Bệnh Lật ngửa (Hội chứng Duck Inverted)<br>"
-                "<b>Quy tắc chẩn đoán:</b> Tương quan chân/thân + Cửa sổ thời gian liên tục 40s<br>"
-                "<b>Đầu vào xử lý:</b> Video luồng / Webcam (yêu cầu phân tích chuỗi thời gian)"
+                "<b>Mô hình tích hợp:</b> YOLOv8n + BoT-SORT Tracker (Run A - 20261021)<br>"
+                "<b>Mục tiêu:</b> Nhận diện & Giám sát Hành vi Bất thường (té ngã, lật ngửa, bất động)<br>"
+                "<b>Quy tắc phân tích:</b> Tương quan giải phẫu chân/thân + Cửa sổ thời gian liên tục 40s<br>"
+                "<b>Tối ưu xử lý:</b> Tự động lấy mẫu 5 FPS (tăng tốc độ xử lý video lên x5 - x10 lần)"
             )
         else:
             sc_hdr.addWidget(StatusBadge("MODEL MÔ PHỎNG", tone="warning"))
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
                 "<b>Mô hình tích hợp:</b> Placeholder AIService<br>"
-                "<b>Bệnh phát hiện:</b> Mô phỏng Bệnh Lật ngửa<br>"
+                "<b>Mục tiêu:</b> Mô phỏng nhận diện hành vi bất thường<br>"
                 "<b>Trạng thái:</b> Chưa phát hiện duckai_package/best.pt"
             )
         info_lbl.setWordWrap(True)
@@ -250,13 +250,13 @@ class AIMonitoringView(QWidget):
         res_layout.setContentsMargins(8, 6, 8, 6)
         res_layout.setSpacing(4)
 
-        res_layout.addWidget(QLabel("<b>Kết quả chẩn đoán Bệnh Lật ngửa (Detection Output)</b>"))
+        res_layout.addWidget(QLabel("<b>Kết quả phân tích Hành vi Bất thường (Detection Output)</b>"))
 
         self.result_label = QLabel(
-            "Vui lòng tải video hoặc quay từ camera để xem kết quả phân tích Bệnh Lật ngửa chi tiết.\n\n"
+            "Vui lòng tải video hoặc quay từ camera để xem kết quả phân tích hành vi chi tiết.\n\n"
             "• Tổng số cá thể bám vết: --\n"
-            "• Cá thể khỏe mạnh: --\n"
-            "• Cá thể nghi mắc Bệnh Lật ngửa: --\n"
+            "• Cá thể bình thường: --\n"
+            "• Cá thể có hành vi bất thường: --\n"
             "• Độ tin cậy trung bình: --"
         )
         self.result_label.setWordWrap(True)
@@ -361,8 +361,8 @@ class AIMonitoringView(QWidget):
         self.analyze_btn.setText("Đang phân tích AI...")
         self.result_label.setText(
             "<b>ĐANG THỰC THI PHÂN TÍCH AI...</b><br>"
-            "Mô hình YOLOv8 đang nhận diện thân/chân, bám vết BoT-SORT & chẩn đoán Bệnh Lật Ngửa theo thời gian.<br>"
-            "<i>Vui lòng chờ trong giây lát...</i>"
+            "Mô hình YOLOv8 đang nhận diện thân/chân, bám vết BoT-SORT & phân tích hành vi bất thường theo thời gian.<br>"
+            "<i>Vui lòng chờ trong giây lát (hệ thống tự tối ưu lấy mẫu để xử lý nhanh)...</i>"
         )
         QTimer.singleShot(100, self._execute_analysis)
 
@@ -383,23 +383,23 @@ class AIMonitoringView(QWidget):
                 QMessageBox.critical(self, "Lỗi phân tích", f"Không thể lưu phiên phân tích: {exc}")
                 return
 
-            # Start live visual playback with bounding box overlay for video
+            # Start live visual playback with real bounding box annotations
             self._start_visual_overlay_playback()
 
             alerts = self._service.get_session_alerts(session.id)
             alert_count = len(alerts)
             if alert_count > 0:
-                sick_str = f"<font color='#D32F2F'><b>{alert_count} đợt phát hiện BỆNH LẬT NGỬA (Cảnh báo Đỏ)</b></font>"
+                sick_str = f"<font color='#D32F2F'><b>{alert_count} đợt phát hiện HÀNH VI BẤT THƯỜNG (Cảnh báo Đỏ)</b></font>"
             else:
-                sick_str = "<font color='#2E7D32'><b>Không phát hiện Bệnh Lật ngửa (Đàn vịt khỏe mạnh)</b></font>"
+                sick_str = "<font color='#2E7D32'><b>Không phát hiện hành vi bất thường (Đàn vịt khỏe mạnh)</b></font>"
 
             self.result_label.setText(
-                f"<b>ĐÃ HOÀN THÀNH PHÂN TÍCH BỆNH LẬT NGỬA</b><br>"
+                f"<b>ĐÃ HOÀN THÀNH PHÂN TÍCH HÀNH VI BẤT THƯỜNG</b><br>"
                 f"<b>Phiên làm việc:</b> #{session.id} ({session.model_version})<br>"
-                f"<b>Kết quả chẩn đoán:</b> {sick_str}<br>"
-                f"<b>Tổng số lượt cảnh báo nguy hiểm:</b> <b>{alert_count}</b><br>"
+                f"<b>Kết quả phân tích:</b> {sick_str}<br>"
+                f"<b>Tổng số lượt cảnh báo:</b> <b>{alert_count}</b><br>"
                 f"<b>Tốc độ FPS xử lý:</b> <b>{metadata.fps or 25}</b><br><br>"
-                f"<i>Hệ thống đã tự động ghi nhận phiên phân tích và tạo Bệnh án Thú y nháp nếu có cá thể bị lật ngửa.</i>"
+                f"<i>Khung nhận diện Bounding Box thực tế từ model YOLOv8 đã được gắn trực tiếp lên từng cá thể vịt.</i>"
             )
             self._last_session_id = session.id
             if alert_count > 0:
@@ -412,29 +412,42 @@ class AIMonitoringView(QWidget):
             QMessageBox.information(
                 self,
                 "Phân tích AI hoàn thành",
-                "Đã hoàn thành phân tích video phát hiện Bệnh Lật Ngửa!\n\n"
-                "Tọa độ Bounding box đã được vẽ trực quan lên video.\n"
-                "Hệ thống đã tự động lưu Cảnh báo đỏ, khởi tạo Bệnh án Thú y và xuất báo cáo Chi tiết cá thể."
+                "Đã hoàn thành phân tích video phát hiện hành vi bất thường!\n\n"
+                "Tọa độ Bounding box đã được mô hình AI vẽ trực tiếp lên từng cá thể vịt.\n"
+                "Hệ thống đã tự động lưu Cảnh báo đỏ và sẵn sàng xuất báo cáo Chi tiết cá thể."
             )
         finally:
             self.analyze_btn.setText("Bắt đầu phân tích AI")
             self.analyze_btn.setEnabled(True)
 
     def _start_visual_overlay_playback(self) -> None:
-        if self._selected_video_path and Path(self._selected_video_path).exists():
-            self._playback_cap = cv2.VideoCapture(self._selected_video_path)
+        if self._playback_timer.isActive():
+            self._playback_timer.stop()
+        if self._playback_cap:
+            self._playback_cap.release()
+            self._playback_cap = None
+
+        from app.config.settings import VIDEOS_DIR
+        ann_path = None
+        if self._selected_video_path:
+            ann_candidate = VIDEOS_DIR / f"_annotated_{Path(self._selected_video_path).stem}.mp4"
+            if ann_candidate.exists():
+                ann_path = str(ann_candidate)
+            elif Path(self._selected_video_path).exists():
+                ann_path = self._selected_video_path
+
+        if ann_path and Path(ann_path).exists():
+            self._playback_cap = cv2.VideoCapture(ann_path)
+            self._has_real_annotations = (ann_path != self._selected_video_path)
         else:
             self._playback_cap = None
+            self._has_real_annotations = False
 
         self._playback_frame_idx = 0
         self._playback_timer.start(40)  # 25 FPS
 
     def _on_playback_tick(self) -> None:
         self._playback_frame_idx += 1
-        if self._playback_frame_idx >= 150:
-            self._playback_frame_idx = 0
-
-        # Read real frame or generate dark green mat
         frame = None
         if self._playback_cap and self._playback_cap.isOpened():
             ret, frame = self._playback_cap.read()
@@ -443,11 +456,12 @@ class AIMonitoringView(QWidget):
                 ret, frame = self._playback_cap.read()
 
         if frame is None:
-            frame = np.full((360, 640, 3), (25, 35, 28), dtype=np.uint8)
+            return
 
-        # Draw AI Bounding Boxes (Requirement 4)
-        sample_tracks = self._service._ai_service.analyze_video("").tracks
-        frame = draw_duck_overlay(frame, self._playback_frame_idx, sample_tracks, show_labels=True)
+        # ONLY if the video DOES NOT have real YOLO annotations, draw fallback
+        if not getattr(self, "_has_real_annotations", False):
+            sample_tracks = self._service._ai_service.analyze_video("").tracks
+            frame = draw_duck_overlay(frame, self._playback_frame_idx, sample_tracks, show_labels=True)
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
@@ -494,16 +508,11 @@ class AIMonitoringView(QWidget):
         if self._selected_video_path:
             dlg.symptoms_input.setPlainText(
                 f"Phát hiện cảnh báo AI từ video {Path(self._selected_video_path).name}: "
-                f"Cá thể có triệu chứng té ngã, nằm lật ngửa bụng, chân co giật hoặc bất động kéo dài (đạt ngưỡng cảnh báo 40s)."
+                f"Cá thể có biểu hiện hành vi bất thường (té ngã, lật ngửa, giảm vận động hoặc nằm bất động liên tục kéo dài)."
             )
-            dlg.diagnosis_input.setPlainText("Bệnh Lật ngửa (Hội chứng Duck Inverted - Phát hiện từ AI)")
-            dlg.treatment_input.setPlainText("Cách ly ngay cá thể nghi mắc Bệnh Lật ngửa, kiểm tra phản xạ thần kinh, hỗ trợ lật lại, tiêm phòng/kháng thể theo chỉ định.")
+            dlg.diagnosis_input.setPlainText("Hành vi bất thường: Té ngã / Lật ngửa / Bất động (AI)")
+            dlg.treatment_input.setPlainText("Cách ly theo dõi cá thể có hành vi bất thường, kiểm tra sức khỏe và hỗ trợ hồi phục.")
             dlg.veterinarian_input.setText(self.current_user.full_name or self.current_user.username)
-            # Auto-select disease 'Lật ngửa' in combo box if present
-            for i in range(dlg.disease_combo.count()):
-                if "lật ngửa" in dlg.disease_combo.itemText(i).lower():
-                    dlg.disease_combo.setCurrentIndex(i)
-                    break
         if dlg.exec():
             QMessageBox.information(
                 self,

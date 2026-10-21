@@ -129,14 +129,14 @@ class AIAnalysisService:
                     flock_id=target_flock.id,
                     disease_id=dis_id,
                     diagnosis_date=dt.date.today(),
-                    diagnosis="Bệnh Lật ngửa (Phát hiện từ AI)",
+                    diagnosis="Hành vi bất thường: Té ngã / Lật ngửa / Bất động (AI)",
                     animal_reference="1 cá thể (AI)",
                     symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
-                    treatment="Cách ly ngay cá thể nghi mắc Bệnh Lật ngửa, kiểm tra phản xạ thần kinh, hỗ trợ lật lại và theo dõi biểu hiện dịch bệnh.",
+                    treatment="Cách ly theo dõi cá thể có hành vi bất thường, kiểm tra sức khỏe và hỗ trợ hồi phục.",
                     veterinarian=actor or "Hệ thống AI tự động",
                     status=VetRecordStatus.THEO_DOI,
                     source="AI_ANALYSIS",
-                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id} (Model chuyên biệt Bệnh Lật ngửa)",
+                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id} (Nhận diện hành vi bất thường)",
                 )
                 session.add(vet_rec)
             else:

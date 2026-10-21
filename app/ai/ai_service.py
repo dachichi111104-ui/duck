@@ -251,10 +251,16 @@ class RealAIService(AIServiceBase):
             return self._analyze_image(video_path)
 
         try:
+            from pathlib import Path
+            from app.config.settings import VIDEOS_DIR
+            out_annotated = str(VIDEOS_DIR / f"_annotated_{Path(video_path).stem}.mp4")
+
             from duckai_package.duck_detector import analyze_video as run_duck_detector
             raw_res = run_duck_detector(
                 video_path=video_path,
                 model_path=self.weights_path,
+                save_annotated_path=out_annotated,
+                sample_fps=5.0,
             )
         except Exception as exc:
             import logging
@@ -290,9 +296,9 @@ class RealAIService(AIServiceBase):
                 end_frame=e_frame,
                 start_time=s_sec,
                 end_time=e_sec,
-                label="Có bệnh",
+                label="Hành vi bất thường",
                 confidence=0.92,
-                behavior_detail=f"Phát hiện BỆNH LẬT NGỬA (kéo dài {dur}s từ {s_sec}s đến {e_sec}s)",
+                behavior_detail=f"Phát hiện HÀNH VI BẤT THƯỜNG (kéo dài {dur}s từ {s_sec}s đến {e_sec}s)",
             ))
 
             detections.append(AIDetection(
@@ -300,9 +306,9 @@ class RealAIService(AIServiceBase):
                 timestamp=s_sec,
                 frame_idx=s_frame,
                 confidence=0.92,
-                behavior_label="Nghi ngờ Bệnh Lật Ngửa",
-                health_status="Có bệnh",
-                notes=f"Cá thể ID:{t_id} lật ngửa từ {s_sec}s đến {e_sec}s (Thời lượng: {dur}s)",
+                behavior_label="Hành vi bất thường",
+                health_status="Bất thường",
+                notes=f"Cá thể ID:{t_id} có hành vi bất thường từ {s_sec}s đến {e_sec}s (Thời lượng: {dur}s)",
             ))
 
             alerts.append(AIAlertResult(
@@ -310,7 +316,7 @@ class RealAIService(AIServiceBase):
                 alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
                 severity=AlertSeverity.RED,
                 timestamp=s_sec,
-                description=f"CẢNH BÁO AI: Cá thể ID:{t_id} phát hiện nghi ngờ BỆNH LẬT NGỬA liên tục trong {dur}s (khung hình {s_frame}-{e_frame}).",
+                description=f"CẢNH BÁO AI: Cá thể ID:{t_id} phát hiện HÀNH VI BẤT THƯỜNG (ngã, lật ngửa, giảm vận động) liên tục trong {dur}s (khung hình {s_frame}-{e_frame}).",
             ))
 
         # If no alerts found, create representative normal track
@@ -321,9 +327,9 @@ class RealAIService(AIServiceBase):
                 end_frame=total_frames,
                 start_time=0.0,
                 end_time=duration_sec,
-                label="Khỏe mạnh",
+                label="Bình thường",
                 confidence=0.95,
-                behavior_detail="Di chuyển bình thường, không phát hiện Bệnh Lật ngửa",
+                behavior_detail="Di chuyển bình thường, không phát hiện hành vi bất thường",
             ))
 
         sick_count = len(alerted_track_ids)
@@ -340,11 +346,12 @@ class RealAIService(AIServiceBase):
                 "total_individuals": total_count,
                 "normal_individuals": normal_count,
                 "suspected_individuals": sick_count,
-                "detection": "YOLOv8-DuckLatNgua",
+                "detection": "YOLOv8-DuckBehavior",
                 "tracking": "BoT-SORT",
                 "behavior_classifier": "Temporal Rule + Immobility Check",
+                "annotated_video_path": raw_res.get("annotated_video_path") or out_annotated,
             },
-            message=f"Hoàn tất phân tích video bằng model Bệnh Lật ngửa: phát hiện {sick_count} cá thể nghi ngờ lật ngửa."
+            message=f"Hoàn tất phân tích video: phát hiện {sick_count} cá thể có hành vi bất thường."
         )
 
     def _analyze_image(self, image_path: str) -> AIAnalysisResult:

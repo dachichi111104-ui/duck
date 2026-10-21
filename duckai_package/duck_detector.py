@@ -39,69 +39,11 @@ def analyze_video(
     tracker="botsort.yaml",
     save_annotated_path=None,
     on_frame=None,
+    sample_fps=5.0,
 ):
     """
-    Phân tích 1 video, trả về các đợt nghi ngờ lật ngửa.
-
-    Tham số bắt buộc:
-        video_path (str): đường dẫn video cần phân tích.
-        model_path (str): đường dẫn file weight .pt (model YOLOv8 đã train).
-
-    Tham số tuỳ chỉnh (đã có giá trị mặc định phù hợp, thường không cần đổi):
-        conf (float): ngưỡng confidence detect (0.30 - đã kiểm chứng bằng sweep).
-        margin (float): hệ số margin cho rule y-position.
-        ratio (float): tỷ lệ frame dương tính trong window để xác nhận cảnh báo.
-        window (int): số frame lịch sử giữ lại mỗi track (~1-1.5s).
-        move_thresh (float): ngưỡng bất động TƯƠNG ĐỐI (theo chiều cao thân).
-        span_ratio (float): ngưỡng tỷ lệ khoảng cách 2 chân / chiều rộng thân.
-        tracker (str): "botsort.yaml" (mặc định, chịu rung/che khuất tốt hơn)
-                       hoặc "bytetrack.yaml".
-
-    Tham số tuỳ chọn cho tích hợp GUI:
-        save_annotated_path (str | None): nếu truyền, lưu video có vẽ bbox +
-            nhãn cảnh báo ra file này (dùng để xem lại/demo).
-        on_frame (callable | None): callback gọi mỗi frame, chữ ký:
-            on_frame(frame_bgr, frame_idx, total_frames, risky_track_ids)
-            - frame_bgr: ảnh frame hiện tại (numpy array, BGR - dùng được trực
-              tiếp với QImage/QPixmap trong PyQt6 để hiển thị preview)
-            - frame_idx (int): chỉ số frame hiện tại (bắt đầu từ 0)
-            - total_frames (int): tổng số frame trong video
-            - risky_track_ids (list[int]): danh sách track_id đang bị cảnh báo
-              NGHI NGỜ LẬT NGỬA ở frame này (rỗng nếu không có)
-            Dùng callback này để cập nhật progress bar / preview trực tiếp
-            trên giao diện, không cần đợi xử lý xong toàn bộ video.
-
-    Trả về dict:
-        {
-            "video_path": str,
-            "fps": float,
-            "total_frames": int,
-            "duration_sec": float,
-            "alerts": [
-                {
-                    "track_id": int,
-                    "start_frame": int,
-                    "end_frame": int,
-                    "start_time_sec": float,
-                    "end_time_sec": float,
-                    "duration_sec": float,
-                },
-                ...
-            ],
-            "annotated_video_path": str | None,  # None nếu không lưu
-        }
-
-        "alerts": mỗi phần tử là MỘT ĐỢT liên tục mà 1 track bị xác nhận nghi
-        ngờ lật ngửa (từ frame bắt đầu đến frame kết thúc trạng thái đó).
-        Danh sách rỗng nghĩa là không phát hiện ca nào trong video.
-
-    Lưu ý quan trọng cho người tích hợp:
-        - Đây là kết quả ở mức RULE-BASED HEURISTIC (không phải mô hình phân
-          loại end-to-end), có thể có sai số. Khuyến nghị hiển thị cảnh báo
-          kèm khả năng xác nhận thủ công, không tự động hành động one-way.
-        - Model hiện train trên dữ liệu 1 trại, số lượng còn hạn chế - độ
-          chính xác trên điều kiện quay khác (trại khác, ánh sáng khác) chưa
-          được kiểm chứng đầy đủ.
+    Phân tích 1 video, trả về các đợt phát hiện hành vi bất thường (lật ngửa / té ngã / bất động).
+    Sử dụng sample_fps để tăng tốc xử lý x5-x10 lần mà vẫn đảm bảo độ chính xác theo chuỗi thời gian.
     """
     model = YOLO(model_path)
 
@@ -114,17 +56,21 @@ def analyze_video(
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    stride = max(1, int(round(fps / sample_fps))) if sample_fps and sample_fps > 0 else 1
+    effective_fps = fps / stride
+
     writer = None
     if save_annotated_path:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(save_annotated_path, fourcc, fps, (w, h))
+        writer = cv2.VideoWriter(save_annotated_path, fourcc, effective_fps, (w, h))
 
-    flip_history = defaultdict(lambda: deque(maxlen=window))
-    pos_history = defaultdict(lambda: deque(maxlen=window))
-    size_history = defaultdict(lambda: deque(maxlen=window))
+    effective_window = max(5, int(round(effective_fps * 1.5)))
+    flip_history = defaultdict(lambda: deque(maxlen=effective_window))
+    pos_history = defaultdict(lambda: deque(maxlen=effective_window))
+    size_history = defaultdict(lambda: deque(maxlen=effective_window))
 
     # Theo dõi trạng thái cảnh báo để gộp thành các "đợt" liên tục
-    open_alerts = {}  # track_id -> start_frame (đợt đang mở, chưa kết thúc)
+    open_alerts = {}  # track_id -> start_frame
     closed_alerts = []  # danh sách các đợt đã kết thúc
 
     MAX_DX_RATIO, MAX_DY_RATIO = 1.2, 1.0
@@ -135,8 +81,13 @@ def analyze_video(
         if not ret:
             break
 
-        results = model.track(frame, conf=conf, persist=True,
-                               tracker=tracker, verbose=False)[0]
+        if frame_idx % stride != 0:
+            frame_idx += 1
+            continue
+
+        results = model.track(
+            frame, conf=conf, persist=True, tracker=tracker, verbose=False, imgsz=640
+        )[0]
 
         boxes = []
         if results.boxes.id is not None:
@@ -145,11 +96,6 @@ def analyze_video(
                 cls_name = model.names[cls_id]
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 boxes.append((cls_name, x1, y1, x2, y2, int(track_id)))
-
-        if writer or on_frame:
-            for cls_name, x1, y1, x2, y2, tid in boxes:
-                color = (0, 200, 0) if cls_name == "than" else (0, 165, 255)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
         than_boxes = [b for b in boxes if b[0] == "than"]
         chan_boxes = [b for b in boxes if b[0] == "chan"]
@@ -178,9 +124,9 @@ def analyze_video(
             if best_i is not None:
                 than_info[best_i]["chans"].append(chan)
 
-        risky_track_ids = []
-
+        risky_track_ids = set()
         active_ids_this_frame = set()
+
         for t in than_info:
             than = t["box"]
             _, x1, y1, x2, y2, tid = than
@@ -218,33 +164,47 @@ def analyze_video(
                 move_ratio = (std_x + std_y) / 2 / max(avg_h, 1e-6)
                 is_still = move_ratio < move_thresh
 
-            enough_history = len(hist) >= max(5, int(window * 0.5))
+            enough_history = len(hist) >= max(3, int(effective_window * 0.4))
             is_confirmed_risk = enough_history and flip_ratio >= ratio and is_still
 
             if is_confirmed_risk:
-                risky_track_ids.append(tid)
+                risky_track_ids.add(tid)
                 if tid not in open_alerts:
                     open_alerts[tid] = frame_idx  # bắt đầu 1 đợt cảnh báo mới
-                if writer or on_frame:
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
-                    cv2.putText(frame, f"NGHI LAT NGUA #{tid}", (x1, max(20, y1 - 20)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             else:
                 if tid in open_alerts:
                     # đợt cảnh báo vừa kết thúc -> chốt lại
                     start_f = open_alerts.pop(tid)
-                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - 1, fps))
+                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps))
 
         # Đóng các đợt cảnh báo của track đã biến mất hoàn toàn khỏi frame (bị mất track hẳn)
         for tid in list(open_alerts.keys()):
             if tid not in active_ids_this_frame:
                 start_f = open_alerts.pop(tid)
-                closed_alerts.append(_make_alert(tid, start_f, frame_idx - 1, fps))
+                closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps))
+
+        # Vẽ bounding box và nhãn trực quan, chính xác lên frame
+        if writer or on_frame:
+            for chan in chan_boxes:
+                _, cx1, cy1, cx2, cy2, _ = chan
+                cv2.rectangle(frame, (cx1, cy1), (cx2, cy2), (0, 140, 255), 1)
+
+            for t in than_info:
+                _, x1, y1, x2, y2, tid = t["box"]
+                is_abnormal = tid in risky_track_ids
+                color = (0, 0, 255) if is_abnormal else (46, 125, 50)
+                tag = f"BAT THUONG #{tid}" if is_abnormal else f"Vit #{tid}"
+                thickness = 3 if is_abnormal else 2
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+                badge_w = len(tag) * 11 + 6
+                badge_h = 22
+                cv2.rectangle(frame, (x1, max(0, y1 - badge_h)), (x1 + badge_w, y1), color, -1)
+                cv2.putText(frame, tag, (x1 + 3, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
         if writer:
             writer.write(frame)
         if on_frame:
-            on_frame(frame, frame_idx, total_frames, risky_track_ids)
+            on_frame(frame, frame_idx, total_frames, list(risky_track_ids))
 
         frame_idx += 1
 

@@ -67,7 +67,7 @@ class VeterinaryView(QWidget):
 
         note = QLabel(
             "<b>Ghi chú Thú y:</b> Hồ sơ bệnh án ghi nhận tình trạng sức khỏe cá thể và theo dõi dịch bệnh theo đàn. "
-            "Cảnh báo có nguồn <i>AI Analysis</i> thể hiện nghi vấn <b>Bệnh Lật ngửa</b> được mô hình AI phát hiện tự động qua camera/video."
+            "Cảnh báo có nguồn <i>AI Analysis</i> thể hiện nghi vấn <b>Hành vi bất thường (té ngã / lật ngửa / bất động)</b> được mô hình AI phát hiện tự động qua camera/video."
         )
         note.setStyleSheet("color: #68736B; font-size: 11px;")
         note.setWordWrap(True)

@@ -163,7 +163,7 @@ class AlertFeedPanel(QWidget):
         t2 = (now - dt.timedelta(minutes=18)).strftime("%Y-%m-%d %H:%M:%S")
         t3 = (now - dt.timedelta(minutes=45)).strftime("%Y-%m-%d %H:%M:%S")
 
-        self.add_alert(t1, "CAM-01", "Cảnh báo Bệnh Lật ngửa (AI)", "Phát hiện cá thể có triệu chứng Bệnh Lật ngửa (ngửa bụng, bất động liên tục)", "RED")
+        self.add_alert(t1, "CAM-01", "Cảnh báo Hành vi Bất thường (AI)", "Phát hiện cá thể có hành vi bất thường: té ngã, lật ngửa, bất động liên tục", "RED")
         self.add_alert(t2, "CAM-03", "Di chuyển bầy đàn bất thường", "Phát hiện 2 cá thể tách riêng khỏi đàn", "ORANGE")
         self.add_alert(t3, "KHO-01", "Tự động quét cảnh báo vật tư", "Cám vịt đẻ đạt ngưỡng tồn kho tối thiểu", "ORANGE")
 
