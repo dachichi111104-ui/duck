@@ -12,6 +12,7 @@ from app.ui.components.table_helpers import build_table, set_row, get_row_data
 from app.ui.components.empty_state import EmptyState
 from app.ui.components.icons import get_icon
 from app.ui.cameras.camera_form_dialog import CameraFormDialog
+from app.config.constants import Roles
 
 COLUMNS = ["Tên Camera", "Vị trí / Khu vực", "Stream URL", "Độ phân giải", "FPS", "Nhận diện AI", "Trạng thái"]
 
@@ -64,6 +65,14 @@ class CameraManagementView(QWidget):
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
+        can_manage = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER)
+        if not can_manage:
+            add_btn.hide()
+            edit_btn.hide()
+            delete_btn.hide()
+            if self.empty_state.action_btn:
+                self.empty_state.action_btn.hide()
+
         self.refresh()
 
     def refresh(self) -> None:
@@ -92,11 +101,17 @@ class CameraManagementView(QWidget):
         return get_row_data(self.table, row) if row >= 0 else None
 
     def _add_camera(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền thêm camera.")
+            return
         dlg = CameraFormDialog(parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền sửa camera.")
+            return
         code = self._selected_camera_code()
         if not code:
             QMessageBox.information(self, "Sửa camera", "Vui lòng chọn một camera từ danh sách.")
@@ -115,6 +130,9 @@ class CameraManagementView(QWidget):
         QMessageBox.information(self, "Kiểm tra kết nối", f"Kết nối tới stream RTSP của {code} thành công!\nĐộ trễ: 14ms.")
 
     def _delete_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền xóa camera.")
+            return
         code = self._selected_camera_code()
         if not code:
             QMessageBox.information(self, "Xóa camera", "Vui lòng chọn một camera.")

@@ -15,7 +15,7 @@ from app.ui.components.icons import get_icon
 from app.ui.flocks.flock_form_dialog import FlockFormDialog
 from app.ui.flocks.flock_detail_view import FlockDetailView
 from app.utils.validators import ValidationError
-from app.config.constants import FlockStatus
+from app.config.constants import FlockStatus, Roles
 
 COLUMNS = ["Tên đàn", "Chuồng", "SL ban đầu", "SL hiện tại", "Hao hụt", "Tỷ lệ sống", "Ngày nhập", "Trạng thái sức khỏe"]
 
@@ -99,6 +99,14 @@ class FlockListView(QWidget):
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
+        can_manage = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER)
+        if not can_manage:
+            add_btn.hide()
+            edit_btn.hide()
+            delete_btn.hide()
+            if self.empty_state.action_btn:
+                self.empty_state.action_btn.hide()
+
     def _update_kpi_cards(self):
         while self.kpi_layout.count():
             item = self.kpi_layout.takeAt(0)
@@ -154,11 +162,17 @@ class FlockListView(QWidget):
         return get_row_data(self.table, row)
 
     def _add_flock(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền thêm đàn vịt.")
+            return
         dlg = FlockFormDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền chỉnh sửa đàn vịt.")
+            return
         flock_id = self._selected_flock_id()
         if flock_id is None:
             QMessageBox.information(self, "Sửa đàn", "Vui lòng chọn một đàn.")
@@ -169,6 +183,9 @@ class FlockListView(QWidget):
             self.refresh()
 
     def _delete_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền xóa đàn vịt.")
+            return
         flock_id = self._selected_flock_id()
         if flock_id is None:
             QMessageBox.information(self, "Xóa đàn", "Vui lòng chọn một đàn.")

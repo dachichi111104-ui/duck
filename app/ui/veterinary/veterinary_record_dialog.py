@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import (
 
 from app.services.veterinary_service import VeterinaryService
 from app.services.flock_service import FlockService
-from app.config.constants import VetRecordStatus
+from app.services.user_management_service import UserManagementService
+from app.config.constants import VetRecordStatus, Roles
 from app.utils.validators import ValidationError
 
 
@@ -19,6 +20,8 @@ class VeterinaryRecordDialog(QDialog):
         self.record = record
         self._service = VeterinaryService()
         self._flock_service = FlockService()
+        self._user_service = UserManagementService()
+        self.vets_list = self._user_service.list_veterinarians()
 
         self.setWindowTitle("Sửa bệnh án" if record else "Thêm bệnh án mới")
         self.setMinimumWidth(440)
@@ -47,7 +50,13 @@ class VeterinaryRecordDialog(QDialog):
         self.treatment_input = QTextEdit()
         self.treatment_input.setMaximumHeight(60)
         self.medication_input = QLineEdit()
-        self.veterinarian_input = QLineEdit()
+
+        # Veterinarian selection / assignment
+        self.veterinarian_combo = QComboBox()
+        self.veterinarian_combo.setEditable(True)
+        for v in self.vets_list:
+            display_name = f"{v.full_name} ({v.username})" if v.full_name != v.username else v.full_name
+            self.veterinarian_combo.addItem(display_name, v.full_name)
 
         self.status_combo = QComboBox()
         for value, label in VetRecordStatus.LABELS_VI.items():
@@ -61,7 +70,12 @@ class VeterinaryRecordDialog(QDialog):
         form.addRow("Chẩn đoán", self.diagnosis_input)
         form.addRow("Điều trị", self.treatment_input)
         form.addRow("Thuốc", self.medication_input)
-        form.addRow("Bác sĩ thú y *", self.veterinarian_input)
+
+        if self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER):
+            form.addRow("Phân công Bác sĩ phụ trách *", self.veterinarian_combo)
+        else:
+            form.addRow("Bác sĩ phụ trách *", self.veterinarian_combo)
+
         form.addRow("Trạng thái", self.status_combo)
 
         buttons = QDialogButtonBox(
@@ -85,13 +99,42 @@ class VeterinaryRecordDialog(QDialog):
             self.diagnosis_input.setPlainText(record.diagnosis or "")
             self.treatment_input.setPlainText(record.treatment or "")
             self.medication_input.setText(record.medication or "")
-            self.veterinarian_input.setText(record.veterinarian or "")
+            if record.veterinarian:
+                idx = -1
+                for i in range(self.veterinarian_combo.count()):
+                    if self.veterinarian_combo.itemData(i) == record.veterinarian or self.veterinarian_combo.itemText(i) == record.veterinarian:
+                        idx = i
+                        break
+                if idx >= 0:
+                    self.veterinarian_combo.setCurrentIndex(idx)
+                else:
+                    self.veterinarian_combo.addItem(record.veterinarian, record.veterinarian)
+                    self.veterinarian_combo.setCurrentText(record.veterinarian)
             idx = self.status_combo.findData(record.status)
             if idx >= 0:
                 self.status_combo.setCurrentIndex(idx)
+        else:
+            if self.current_user.role_name == Roles.VETERINARIAN:
+                idx = -1
+                for i in range(self.veterinarian_combo.count()):
+                    data = self.veterinarian_combo.itemData(i)
+                    text = self.veterinarian_combo.itemText(i)
+                    if data == self.current_user.full_name or self.current_user.username in text:
+                        idx = i
+                        break
+                if idx >= 0:
+                    self.veterinarian_combo.setCurrentIndex(idx)
+                else:
+                    self.veterinarian_combo.setCurrentText(self.current_user.full_name)
+            elif self.vets_list:
+                self.veterinarian_combo.setCurrentIndex(0)
 
     def _save(self) -> None:
         try:
+            vet_val = self.veterinarian_combo.currentData()
+            if not vet_val:
+                vet_val = self.veterinarian_combo.currentText().strip()
+
             if self.record:
                 self._service.update_record(
                     self.current_user.username, self.record.id,
@@ -99,7 +142,7 @@ class VeterinaryRecordDialog(QDialog):
                     diagnosis=self.diagnosis_input.toPlainText(),
                     treatment=self.treatment_input.toPlainText(),
                     medication=self.medication_input.text(),
-                    veterinarian=self.veterinarian_input.text(),
+                    veterinarian=vet_val,
                     status=self.status_combo.currentData(),
                     disease_id=self.disease_combo.currentData(),
                 )
@@ -113,7 +156,7 @@ class VeterinaryRecordDialog(QDialog):
                     diagnosis=self.diagnosis_input.toPlainText(),
                     treatment=self.treatment_input.toPlainText(),
                     medication=self.medication_input.text(),
-                    veterinarian=self.veterinarian_input.text(),
+                    veterinarian=vet_val,
                     status=self.status_combo.currentData(),
                     animal_reference=self.animal_ref_input.text(),
                 )

@@ -15,7 +15,8 @@ class EmptyState(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
 
+        self.action_btn = None
         if action_text and on_action:
-            btn = QPushButton(action_text)
-            btn.clicked.connect(on_action)
-            layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.action_btn = QPushButton(action_text)
+            self.action_btn.clicked.connect(on_action)
+            layout.addWidget(self.action_btn, alignment=Qt.AlignmentFlag.AlignCenter)

@@ -8,6 +8,7 @@ from app.ui.components.empty_state import EmptyState
 from app.ui.components.icons import get_icon
 from app.ui.barns.barn_form_dialog import BarnFormDialog
 from app.utils.validators import ValidationError
+from app.config.constants import Roles
 
 COLUMNS = ["Tên chuồng", "Vị trí", "Sức chứa", "Hiện tại", "Trạng thái"]
 
@@ -54,6 +55,14 @@ class BarnView(QWidget):
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
+        can_manage = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER)
+        if not can_manage:
+            add_btn.hide()
+            edit_btn.hide()
+            delete_btn.hide()
+            if self.empty_state.action_btn:
+                self.empty_state.action_btn.hide()
+
         self.refresh()
 
     def refresh(self) -> None:
@@ -79,11 +88,17 @@ class BarnView(QWidget):
         return get_row_data(self.table, row) if row >= 0 else None
 
     def _add_barn(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền thêm chuồng nuôi.")
+            return
         dlg = BarnFormDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền sửa thông tin chuồng nuôi.")
+            return
         barn_id = self._selected_barn_id()
         if barn_id is None:
             QMessageBox.information(self, "Sửa chuồng", "Vui lòng chọn một chuồng.")
@@ -94,6 +109,9 @@ class BarnView(QWidget):
             self.refresh()
 
     def _delete_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền xóa chuồng nuôi.")
+            return
         barn_id = self._selected_barn_id()
         if barn_id is None:
             QMessageBox.information(self, "Xóa chuồng", "Vui lòng chọn một chuồng.")

@@ -12,7 +12,7 @@ from app.ui.components.empty_state import EmptyState
 from app.ui.components.status_badge import StatusBadge
 from app.ui.components.icons import get_icon
 from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
-from app.config.constants import VetRecordStatus
+from app.config.constants import VetRecordStatus, Roles
 
 COLUMNS = ["Ngày chẩn đoán", "Tên đàn", "Cá thể / Thẻ", "Bệnh nghi ngờ", "Triệu chứng", "Phác đồ điều trị", "Bác sĩ thú y", "Trạng thái", "Nguồn"]
 
@@ -62,6 +62,10 @@ class VeterinaryView(QWidget):
         add_btn.setIcon(get_icon("fa5s.plus", color="#FFFFFF"))
         add_btn.clicked.connect(self._add_record)
         toolbar.addWidget(add_btn)
+
+        if self.current_user.role_name == Roles.STAFF:
+            edit_btn.hide()
+            add_btn.hide()
 
         layout.addLayout(toolbar)
 
@@ -174,11 +178,17 @@ class VeterinaryView(QWidget):
         return next((r for r in self._all_records if r.id == rec_id), None)
 
     def _add_record(self) -> None:
+        if self.current_user.role_name == Roles.STAFF:
+            QMessageBox.warning(self, "Quyền truy cập", "Nhân viên không có quyền tạo hồ sơ bệnh án.")
+            return
         dlg = VeterinaryRecordDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name == Roles.STAFF:
+            QMessageBox.warning(self, "Quyền truy cập", "Nhân viên không có quyền chỉnh sửa hồ sơ bệnh án.")
+            return
         record = self._selected_record()
         if record is None:
             QMessageBox.information(self, "Sửa bệnh án", "Vui lòng chọn một bệnh án từ danh sách.")

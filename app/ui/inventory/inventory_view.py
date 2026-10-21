@@ -12,7 +12,7 @@ from app.ui.components.status_badge import StatusBadge
 from app.ui.components.icons import get_icon
 from app.ui.inventory.item_form_dialog import ItemFormDialog
 from app.ui.inventory.transaction_dialog import TransactionDialog
-from app.config.constants import InventoryTransactionType
+from app.config.constants import InventoryTransactionType, Roles
 
 ITEM_COLUMNS = ["Tên vật tư", "Danh mục", "Tồn kho hiện tại", "Định mức tối thiểu", "Đơn giá", "Hạn sử dụng", "Trạng thái kho"]
 
@@ -122,6 +122,15 @@ class InventoryView(QWidget):
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
+        can_manage = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER)
+        if not can_manage:
+            add_btn.hide()
+            edit_btn.hide()
+            delete_btn.hide()
+            adjust_btn.hide()
+            if self.empty_state.action_btn:
+                self.empty_state.action_btn.hide()
+
     def _apply_filter(self) -> None:
         text = self.search_input.text().strip().lower()
         cat_id = self.category_filter.currentData()
@@ -157,11 +166,17 @@ class InventoryView(QWidget):
         return next((i for i in self._all_items if i.id == item_id), None)
 
     def _add_item(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền thêm danh mục vật tư.")
+            return
         dlg = ItemFormDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền sửa danh mục vật tư.")
+            return
         item = self._selected_item()
         if item is None:
             QMessageBox.information(self, "Sửa vật tư", "Vui lòng chọn một vật tư.")
@@ -171,6 +186,9 @@ class InventoryView(QWidget):
             self.refresh()
 
     def _delete_selected(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền xóa vật tư.")
+            return
         item = self._selected_item()
         if item is None:
             QMessageBox.information(self, "Xóa vật tư", "Vui lòng chọn một vật tư.")
@@ -181,6 +199,9 @@ class InventoryView(QWidget):
             self.refresh()
 
     def _open_transaction(self, txn_type: str) -> None:
+        if txn_type == InventoryTransactionType.ADJUSTMENT and self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền điều chỉnh số dư kho.")
+            return
         item = self._selected_item()
         if item is None:
             QMessageBox.information(self, "Giao dịch kho", "Vui lòng chọn một vật tư từ danh sách.")

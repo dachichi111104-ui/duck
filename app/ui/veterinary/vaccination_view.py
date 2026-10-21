@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import datetime as dt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox
 
 from app.services.veterinary_service import VeterinaryService
 from app.ui.components.kpi_card import KpiCard
 from app.ui.components.table_helpers import build_table, set_row
 from app.ui.components.empty_state import EmptyState
 from app.ui.components.icons import get_icon
-from app.config.constants import VaccinationStatus
+from app.ui.veterinary.vaccination_dialog import VaccinationDialog
+from app.config.constants import VaccinationStatus, Roles
 
 COLUMNS = ["Đàn vịt", "Tên Vắc xin", "Ngày tiêm vừa qua", "Hạn tiêm tiếp theo", "Liều lượng", "Bác sĩ thực hiện", "Trạng thái lịch"]
 
@@ -49,12 +50,18 @@ class VaccinationView(QWidget):
         add_btn.setIcon(get_icon("fa5s.plus", color="#FFFFFF"))
         add_btn.clicked.connect(self._add_vaccination)
         toolbar.addWidget(add_btn)
+
+        if self.current_user.role_name == Roles.STAFF:
+            add_btn.hide()
+
         layout.addLayout(toolbar)
 
         self.table = build_table(COLUMNS)
         layout.addWidget(self.table)
 
         self.empty_state = EmptyState("Chưa có lịch tiêm phòng nào", "Ghi nhận tiêm phòng", self._add_vaccination)
+        if self.current_user.role_name == Roles.STAFF:
+            self.empty_state.action_btn.hide()
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
@@ -93,7 +100,9 @@ class VaccinationView(QWidget):
         self.empty_state.setVisible(not items)
 
     def _add_vaccination(self) -> None:
-        from app.ui.veterinary.vaccination_dialog import VaccinationDialog
+        if self.current_user.role_name == Roles.STAFF:
+            QMessageBox.warning(self, "Quyền truy cập", "Nhân viên không có quyền lập lịch hoặc ghi nhận tiêm phòng.")
+            return
         dlg = VaccinationDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()

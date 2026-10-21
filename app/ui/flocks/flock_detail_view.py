@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget, QFrame, QMessageBox,
 )
 
 from app.services.flock_service import FlockService
@@ -10,7 +10,7 @@ from app.ui.components.table_helpers import build_table, set_row
 from app.ui.components.empty_state import EmptyState
 from app.ui.flocks.flock_event_dialog import FlockEventDialog
 from app.ui.flocks.production_dialog import ProductionRecordDialog
-from app.config.constants import FlockEventType, VetRecordStatus
+from app.config.constants import FlockEventType, VetRecordStatus, Roles
 
 
 class FlockDetailView(QWidget):
@@ -113,6 +113,8 @@ class FlockDetailView(QWidget):
         toolbar.addStretch()
         add_btn = QPushButton("+ Ghi nhận biến động")
         add_btn.clicked.connect(self._add_event)
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            add_btn.hide()
         toolbar.addWidget(add_btn)
         layout.addLayout(toolbar)
 
@@ -129,6 +131,9 @@ class FlockDetailView(QWidget):
             ])
 
     def _add_event(self) -> None:
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền ghi nhận biến động đàn.")
+            return
         dlg = FlockEventDialog(self.current_user, self.flock_id, parent=self)
         if dlg.exec():
             self.load_data()

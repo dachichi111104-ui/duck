@@ -52,6 +52,7 @@ ROLE_MENU_PERMISSIONS = {
     Roles.FARM_MANAGER: {
         MenuKeys.DASHBOARD, MenuKeys.MONITORING, MenuKeys.CAMERAS, MenuKeys.AI_DETECTION,
         MenuKeys.FLOCKS, MenuKeys.BARNS, MenuKeys.PRODUCTION, MenuKeys.INVENTORY,
+        MenuKeys.VETERINARY, MenuKeys.VACCINATION,
         MenuKeys.ALERTS, MenuKeys.HISTORY, MenuKeys.REPORTS, MenuKeys.SETTINGS,
     },
     Roles.VETERINARIAN: {

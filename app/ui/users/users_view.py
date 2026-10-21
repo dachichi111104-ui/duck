@@ -61,6 +61,13 @@ class UsersView(QWidget):
         layout.addWidget(self.empty_state)
         self.empty_state.hide()
 
+        if self.current_user.role_name != Roles.ADMIN:
+            add_btn.hide()
+            edit_btn.hide()
+            delete_btn.hide()
+            if self.empty_state.action_btn:
+                self.empty_state.action_btn.hide()
+
         self.refresh()
 
     def refresh(self) -> None:
@@ -95,11 +102,17 @@ class UsersView(QWidget):
         return next((u for u in self._all_users if u.id == user_id), None)
 
     def _add_user(self) -> None:
+        if self.current_user.role_name != Roles.ADMIN:
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên hệ thống (Admin) mới có quyền thêm người dùng.")
+            return
         dlg = UserFormDialog(self.current_user, parent=self)
         if dlg.exec():
             self.refresh()
 
     def _edit_selected(self) -> None:
+        if self.current_user.role_name != Roles.ADMIN:
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên hệ thống (Admin) mới có quyền sửa người dùng.")
+            return
         user = self._selected_user()
         if user is None:
             QMessageBox.information(self, "Sửa người dùng", "Vui lòng chọn một người dùng.")
@@ -109,6 +122,9 @@ class UsersView(QWidget):
             self.refresh()
 
     def _delete_selected(self) -> None:
+        if self.current_user.role_name != Roles.ADMIN:
+            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên hệ thống (Admin) mới có quyền xóa người dùng.")
+            return
         user = self._selected_user()
         if user is None:
             QMessageBox.information(self, "Xóa người dùng", "Vui lòng chọn một người dùng.")

@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (
 from app.services.veterinary_service import VeterinaryService
 from app.services.flock_service import FlockService
 from app.services.inventory_service import InventoryService
-from app.config.constants import InventoryTransactionType
+from app.services.user_management_service import UserManagementService
+from app.config.constants import InventoryTransactionType, Roles
 from app.utils.validators import ValidationError
 from app.utils.logger import get_logger
 
@@ -23,6 +24,8 @@ class VaccinationDialog(QDialog):
         self._service = VeterinaryService()
         self._flock_service = FlockService()
         self._inventory_service = InventoryService()
+        self._user_service = UserManagementService()
+        self.vets_list = self._user_service.list_veterinarians()
 
         self.setWindowTitle("Ghi nhận tiêm phòng")
         self.setMinimumWidth(420)
@@ -45,7 +48,28 @@ class VaccinationDialog(QDialog):
 
         self.dosage_input = QLineEdit()
         self.dosage_input.setPlaceholderText("Ví dụ: 1ml/con")
-        self.veterinarian_input = QLineEdit()
+
+        # Veterinarian assignment / selection
+        self.veterinarian_combo = QComboBox()
+        self.veterinarian_combo.setEditable(True)
+        for v in self.vets_list:
+            display_name = f"{v.full_name} ({v.username})" if v.full_name != v.username else v.full_name
+            self.veterinarian_combo.addItem(display_name, v.full_name)
+
+        if self.current_user.role_name == Roles.VETERINARIAN:
+            idx = -1
+            for i in range(self.veterinarian_combo.count()):
+                data = self.veterinarian_combo.itemData(i)
+                text = self.veterinarian_combo.itemText(i)
+                if data == self.current_user.full_name or self.current_user.username in text:
+                    idx = i
+                    break
+            if idx >= 0:
+                self.veterinarian_combo.setCurrentIndex(idx)
+            else:
+                self.veterinarian_combo.setCurrentText(self.current_user.full_name)
+        elif self.vets_list:
+            self.veterinarian_combo.setCurrentIndex(0)
 
         # Inventory integration fields (Requirement 7)
         self.inventory_combo = QComboBox()
@@ -66,7 +90,12 @@ class VaccinationDialog(QDialog):
         form.addRow(self.has_next_check)
         form.addRow("Ngày tiêm tiếp theo", self.next_date_input)
         form.addRow("Liều lượng", self.dosage_input)
-        form.addRow("Bác sĩ thú y", self.veterinarian_input)
+
+        if self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER):
+            form.addRow("Phân công Bác sĩ thực hiện", self.veterinarian_combo)
+        else:
+            form.addRow("Bác sĩ / Cán bộ thực hiện", self.veterinarian_combo)
+
         form.addRow("Vật tư vắc-xin kho", self.inventory_combo)
         form.addRow("Số lượng vắc-xin sử dụng", self.qty_used_input)
 
@@ -98,6 +127,10 @@ class VaccinationDialog(QDialog):
                     return
 
         try:
+            vet_val = self.veterinarian_combo.currentData()
+            if not vet_val:
+                vet_val = self.veterinarian_combo.currentText().strip()
+
             # 1. Schedule vaccination record
             vac = self._service.schedule_vaccination(
                 self.current_user.username,
@@ -106,7 +139,7 @@ class VaccinationDialog(QDialog):
                 vaccination_date=self.date_input.date().toPyDate(),
                 next_date=self.next_date_input.date().toPyDate() if self.has_next_check.isChecked() else None,
                 dosage=self.dosage_input.text(),
-                veterinarian=self.veterinarian_input.text(),
+                veterinarian=vet_val,
             )
 
             # 2. Automatically record inventory EXPORT transaction (Requirement 7)

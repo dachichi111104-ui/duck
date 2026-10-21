@@ -6,7 +6,7 @@ from app.repositories.user_repository import UserRepository, RoleRepository
 from app.utils.security import hash_password
 from app.utils.validators import require_not_empty, ValidationError
 from app.utils.logger import log_action, get_logger
-from app.config.constants import UserStatus
+from app.config.constants import UserStatus, Roles
 
 logger = get_logger("user_mgmt_service")
 
@@ -71,3 +71,18 @@ class UserManagementService:
                 return
             self._user_repo.delete(session, user)
         log_action(actor, "DELETE_USER", str(user_id))
+
+    def list_veterinarians(self) -> list[User]:
+        """Return active users who have the VETERINARIAN role.
+        If none found, returns all active users as fallback.
+        """
+        with session_scope() as session:
+            users = self._user_repo.get_all_with_roles(session)
+            vets = [
+                u for u in users
+                if u.status == UserStatus.ACTIVE and u.role and u.role.name == Roles.VETERINARIAN
+            ]
+            if not vets:
+                vets = [u for u in users if u.status == UserStatus.ACTIVE]
+            session.expunge_all()
+            return vets
