@@ -22,7 +22,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from app.config.settings import SYNC_ENABLED, SYNC_INTERVAL_SECONDS
 from app.database.connection import session_scope
 from app.database.models import (
-    User, Barn, Camera, Flock, FlockEvent, ProductionRecord, InventoryCategory,
+    User, Role, Barn, Camera, Flock, FlockEvent, ProductionRecord, InventoryCategory,
     InventoryItem, InventoryTransaction, Disease, VeterinaryRecord,
     Vaccination, AIAnalysisSession, AIDetectionResult, AIAlert, Notification
 )
@@ -409,6 +409,42 @@ class SyncWorker(QThread):
                     session.rollback()
                     err_msg = str(e).encode("ascii", "replace").decode("ascii")
                     logger.warning("Error pulling updates for %s: %s", model_name, err_msg)
+
+            # Sync user accounts (e.g. veterinarians) from backend if available
+            try:
+                resp = self.api_client.request("GET", "users", timeout=10)
+                if resp and resp.status_code == 200:
+                    remote_users = resp.json()
+                    if isinstance(remote_users, list):
+                        role_cache = {r.name: r.id for r in session.query(Role).all()}
+                        for u_data in remote_users:
+                            u_name = u_data.get("username")
+                            if not u_name:
+                                continue
+                            local_u = session.query(User).filter(User.username == u_name).first()
+                            r_role = u_data.get("role")
+                            r_role_id = role_cache.get(r_role)
+                            if local_u:
+                                if u_data.get("full_name"):
+                                    local_u.full_name = u_data["full_name"]
+                                if u_data.get("email"):
+                                    local_u.email = u_data["email"]
+                                if r_role_id:
+                                    local_u.role_id = r_role_id
+                            else:
+                                from app.utils.security import hash_password
+                                new_u = User(
+                                    username=u_name,
+                                    full_name=u_data.get("full_name") or u_name,
+                                    email=u_data.get("email"),
+                                    password_hash=hash_password("123456"),
+                                    role_id=r_role_id,
+                                    status="ACTIVE" if u_data.get("is_active", True) else "INACTIVE",
+                                )
+                                session.add(new_u)
+                        session.commit()
+            except Exception as e:
+                logger.debug("Optional user sync skipped: %s", e)
 
 
 class SyncService:

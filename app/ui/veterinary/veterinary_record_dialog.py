@@ -125,17 +125,7 @@ class VeterinaryRecordDialog(QDialog):
                 self.status_combo.setCurrentIndex(idx)
         else:
             if self.current_user.role_name == Roles.VETERINARIAN:
-                idx = -1
-                for i in range(self.veterinarian_combo.count()):
-                    data = self.veterinarian_combo.itemData(i)
-                    text = self.veterinarian_combo.itemText(i)
-                    if data == self.current_user.full_name or self.current_user.username in text:
-                        idx = i
-                        break
-                if idx >= 0:
-                    self.veterinarian_combo.setCurrentIndex(idx)
-                else:
-                    self.veterinarian_combo.setCurrentText(self.current_user.full_name)
+                self.set_veterinarian(self.current_user.full_name or self.current_user.username)
             elif self.vets_list:
                 self.veterinarian_combo.setCurrentIndex(0)
 
@@ -143,9 +133,12 @@ class VeterinaryRecordDialog(QDialog):
         """Helper to programmatically select or set attending veterinarian."""
         if not vet_name:
             return
+        target = str(vet_name).strip().lower()
         idx = -1
         for i in range(self.veterinarian_combo.count()):
-            if self.veterinarian_combo.itemData(i) == vet_name or self.veterinarian_combo.itemText(i) == vet_name:
+            val = str(self.veterinarian_combo.itemData(i) or "").strip().lower()
+            txt = self.veterinarian_combo.itemText(i).strip().lower()
+            if target == val or target == txt or target in txt:
                 idx = i
                 break
         if idx >= 0:

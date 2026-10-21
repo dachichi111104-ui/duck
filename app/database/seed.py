@@ -47,6 +47,12 @@ def seed_database() -> None:
                  full_name="Quản lý trang trại", role_id=roles[Roles.FARM_MANAGER].id),
             User(username="vet", password_hash=hash_password("vet123"),
                  full_name="Bác sĩ thú y", role_id=roles[Roles.VETERINARIAN].id),
+            User(username="bs_lehoang", password_hash=hash_password("vet123"),
+                 full_name="BS. Lê Hoàng Thú Y", role_id=roles[Roles.VETERINARIAN].id),
+            User(username="bs_a", password_hash=hash_password("vet123"),
+                 full_name="BSTY Nguyễn Văn A", role_id=roles[Roles.VETERINARIAN].id),
+            User(username="bs_b", password_hash=hash_password("vet123"),
+                 full_name="BSTY Trần Thị B", role_id=roles[Roles.VETERINARIAN].id),
             User(username="staff", password_hash=hash_password("staff123"),
                  full_name="Nhân viên trang trại", role_id=roles[Roles.STAFF].id),
         ]

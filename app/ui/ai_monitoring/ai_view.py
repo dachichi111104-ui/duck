@@ -506,6 +506,11 @@ class AIMonitoringView(QWidget):
         from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
         from app.config.constants import Roles
         dlg = VeterinaryRecordDialog(self.current_user, parent=self)
+        flock_id = self.flock_combo.currentData()
+        if flock_id:
+            idx = dlg.flock_combo.findData(flock_id)
+            if idx >= 0:
+                dlg.flock_combo.setCurrentIndex(idx)
         if self._selected_video_path:
             dlg.symptoms_input.setPlainText(
                 f"Phát hiện cảnh báo AI từ video {Path(self._selected_video_path).name}: "
