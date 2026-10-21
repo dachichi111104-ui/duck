@@ -208,158 +208,184 @@ class SyncWorker(QThread):
         return last_resp, candidates[0] if candidates else ""
 
     def push_pending_records(self):
-        with session_scope() as session:
-            for model_cls in SYNC_MODELS:
-                if model_cls in (User, Notification):
-                    continue
+        for model_cls in SYNC_MODELS:
+            if model_cls in (User, Notification):
+                continue
+            candidates = ENDPOINT_MAP.get(model_cls, [])
+            if isinstance(candidates, str):
+                candidates = [candidates]
+            if not candidates:
+                continue
+
+            # Read pending items and serialize them inside a quick session
+            pending_items = []
+            sessions_map: dict[int, list[dict]] = {}
+            target_sess_map: dict[int, int] = {}
+
+            with session_scope() as session:
                 repo = BaseRepository()
                 repo.model = model_cls
                 pending_records = repo.get_pending(session)
-                candidates = ENDPOINT_MAP.get(model_cls, [])
-                if isinstance(candidates, str):
-                    candidates = [candidates]
-                if not candidates:
+                if not pending_records:
                     continue
 
                 if model_cls == AIDetectionResult:
-                    # Group detection records by session_id and post batch JSON list
-                    sessions_map: dict[int, list[Any]] = {}
                     for record in pending_records:
                         sess_id = record.session_id or 1
-                        sessions_map.setdefault(sess_id, []).append(record)
-
-                    for sess_id, recs in sessions_map.items():
-                        try:
-                            ai_sess = session.get(AIAnalysisSession, sess_id)
-                            target_sess_id = (ai_sess.remote_id or ai_sess.id) if ai_sess else sess_id
-                            batch_payload = [serialize_model(r, session=session) for r in recs]
-                            resp = self.api_client.request("POST", f"ai/sessions/{target_sess_id}/detections", json=batch_payload, timeout=30)
-                            if resp and resp.status_code in (200, 201):
-                                for r in recs:
-                                    repo.mark_synced(session, r)
-                                logger.info("Pushed %s AIDetectionResults batch for session_id=%s", len(recs), target_sess_id)
-                            elif resp and resp.status_code in (404, 400, 422):
-                                # Session not on server yet or schema mismatch -> mark synced locally to avoid loop
-                                for r in recs:
-                                    repo.mark_synced(session, r)
-                                logger.warning("Marked %s AIDetectionResults SYNCED due to server response HTTP %s", len(recs), resp.status_code)
-                            else:
-                                err_text = (resp.text if resp else "No response").encode("ascii", "replace").decode("ascii")
-                                logger.warning("Failed batch POST AIDetectionResult session=%s: HTTP %s - %s", target_sess_id, resp.status_code if resp else "ERR", err_text[:200])
-                        except AuthRequiredError:
-                            raise
-                        except Exception as e:
-                            logger.warning("Error pushing AIDetectionResult batch session=%s: %s", sess_id, e)
-                    continue
-
-                if model_cls == AIAlert:
+                        payload = serialize_model(record, session=session)
+                        payload["_local_id"] = record.id
+                        sessions_map.setdefault(sess_id, []).append(payload)
+                    for sess_id in sessions_map:
+                        ai_sess = session.get(AIAnalysisSession, sess_id)
+                        target_sess_map[sess_id] = (ai_sess.remote_id or ai_sess.id) if ai_sess else sess_id
+                else:
                     for record in pending_records:
-                        try:
-                            if record.remote_id is None:
-                                # Web backend auto-generates alerts; mark local AIAlert synced
-                                repo.mark_synced(session, record)
-                                logger.info("Marked AIAlert local_id=%s SYNCED (server auto-generates alerts)", record.id)
-                            else:
-                                payload = serialize_model(record, session=session)
-                                resp = self.api_client.request("PUT", f"ai/alerts/{record.remote_id}/status", json=payload, timeout=30)
-                                if resp and resp.status_code in (200, 204):
-                                    repo.mark_synced(session, record)
-                        except AuthRequiredError:
-                            raise
-                        except Exception as e:
-                            logger.warning("Error syncing AIAlert local_id=%s: %s", record.id, e)
-                    continue
+                        payload = serialize_model(record, session=session)
+                        pending_items.append((record.id, record.remote_id, payload))
 
-                for record in pending_records:
-                    payload = serialize_model(record, session=session)
-
+            # Database session is CLOSED! Perform network requests safely.
+            if model_cls == AIDetectionResult:
+                for sess_id, rec_payloads in sessions_map.items():
+                    target_sess_id = target_sess_map.get(sess_id, sess_id)
+                    local_ids = [p.pop("_local_id") for p in rec_payloads]
                     try:
-                        if record.remote_id is None:
-                            # CREATE on server
-                            resp, _ = self._call_endpoint_candidates("POST", candidates, payload=payload)
-                            is_dup = False
-                            if resp and resp.status_code in (400, 409, 422):
-                                try:
-                                    res_json = resp.json()
-                                    detail_str = str(res_json.get("detail", "")) if isinstance(res_json, dict) else resp.text
-                                except Exception:
-                                    detail_str = resp.text if resp else ""
-                                if any(kw in detail_str.lower() for kw in ("tồn tại", "ton tai", "exists", "already", "t\u1ed3n t\u1ea1i", "duplicate")):
-                                    is_dup = True
-
-                            if resp and resp.status_code in (200, 201):
-                                res_json = resp.json()
-                                remote_id = res_json.get("id") or res_json.get("remote_id")
-                                repo.mark_synced(session, record, remote_id=remote_id)
-                                logger.info("Pushed NEW %s (local_id=%s -> remote_id=%s)", model_cls.__name__, record.id, remote_id)
-                            elif is_dup or (resp and resp.status_code in (400, 409)):
-                                # Record code already exists on server -> Link & mark synced
-                                repo.mark_synced(session, record)
-                                logger.info("Record %s local_id=%s already exists on server, marked SYNCED", model_cls.__name__, record.id)
-                            else:
-                                err_text = (resp.text if resp else "No response").encode("ascii", "replace").decode("ascii")
-                                status_code = resp.status_code if resp else "ERR"
-                                logger.warning("Failed POST %s: HTTP %s - %s", model_cls.__name__, status_code, err_text[:200])
-                        else:
-                            # UPDATE on server
-                            resp, _ = self._call_endpoint_candidates("PUT", candidates, payload=payload, remote_id=record.remote_id)
-                            if resp and resp.status_code in (200, 204):
-                                repo.mark_synced(session, record)
-                                logger.info("Pushed UPDATE %s (remote_id=%s)", model_cls.__name__, record.remote_id)
-                            elif resp and resp.status_code == 409:
-                                repo.mark_conflict(session, record)
-                                self.conflict_occurred.emit(model_cls.__name__, record.id)
-                                logger.warning("Conflict detected on PUSH %s remote_id=%s", model_cls.__name__, record.remote_id)
-                            else:
-                                err_text = (resp.text if resp else "No response").encode("ascii", "replace").decode("ascii")
-                                status_code = resp.status_code if resp else "ERR"
-                                logger.warning("Failed PUT %s: HTTP %s - %s", model_cls.__name__, status_code, err_text[:200])
+                        resp = self.api_client.request("POST", f"ai/sessions/{target_sess_id}/detections", json=rec_payloads, timeout=30)
+                        if resp and resp.status_code in (200, 201, 404, 400, 422):
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = AIDetectionResult
+                                for lid in local_ids:
+                                    rec = session.get(AIDetectionResult, lid)
+                                    if rec:
+                                        r_repo.mark_synced(session, rec)
+                            logger.info("Pushed %s AIDetectionResults batch for session_id=%s", len(local_ids), target_sess_id)
                     except AuthRequiredError:
                         raise
                     except Exception as e:
-                        err_msg = str(e).encode("ascii", "replace").decode("ascii")
-                        logger.warning("Error pushing record %s id=%s: %s", model_cls.__name__, record.id, err_msg)
+                        logger.warning("Error pushing AIDetectionResult batch session=%s: %s", sess_id, e)
+                continue
+
+            if model_cls == AIAlert:
+                for lid, rem_id, payload in pending_items:
+                    try:
+                        if rem_id is None:
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = AIAlert
+                                rec = session.get(AIAlert, lid)
+                                if rec:
+                                    r_repo.mark_synced(session, rec)
+                        else:
+                            resp = self.api_client.request("PUT", f"ai/alerts/{rem_id}/status", json=payload, timeout=30)
+                            if resp and resp.status_code in (200, 204):
+                                with session_scope() as session:
+                                    r_repo = BaseRepository()
+                                    r_repo.model = AIAlert
+                                    rec = session.get(AIAlert, lid)
+                                    if rec:
+                                        r_repo.mark_synced(session, rec)
+                    except AuthRequiredError:
+                        raise
+                    except Exception as e:
+                        logger.warning("Error syncing AIAlert local_id=%s: %s", lid, e)
+                continue
+
+            for lid, rem_id, payload in pending_items:
+                try:
+                    if rem_id is None:
+                        resp, _ = self._call_endpoint_candidates("POST", candidates, payload=payload)
+                        is_dup = False
+                        if resp and resp.status_code in (400, 409, 422):
+                            try:
+                                res_json = resp.json()
+                                detail_str = str(res_json.get("detail", "")) if isinstance(res_json, dict) else resp.text
+                            except Exception:
+                                detail_str = resp.text if resp else ""
+                            if any(kw in detail_str.lower() for kw in ("tồn tại", "ton tai", "exists", "already", "t\u1ed3n t\u1ea1i", "duplicate")):
+                                is_dup = True
+
+                        if resp and resp.status_code in (200, 201):
+                            res_json = resp.json()
+                            remote_id = res_json.get("id") or res_json.get("remote_id")
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = model_cls
+                                rec = session.get(model_cls, lid)
+                                if rec:
+                                    r_repo.mark_synced(session, rec, remote_id=remote_id)
+                            logger.info("Pushed NEW %s (local_id=%s -> remote_id=%s)", model_cls.__name__, lid, remote_id)
+                        elif is_dup or (resp and resp.status_code in (400, 409)):
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = model_cls
+                                rec = session.get(model_cls, lid)
+                                if rec:
+                                    r_repo.mark_synced(session, rec)
+                            logger.info("Record %s local_id=%s already exists on server, marked SYNCED", model_cls.__name__, lid)
+                    else:
+                        resp, _ = self._call_endpoint_candidates("PUT", candidates, payload=payload, remote_id=rem_id)
+                        if resp and resp.status_code in (200, 204):
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = model_cls
+                                rec = session.get(model_cls, lid)
+                                if rec:
+                                    r_repo.mark_synced(session, rec)
+                            logger.info("Pushed UPDATE %s (remote_id=%s)", model_cls.__name__, rem_id)
+                        elif resp and resp.status_code == 409:
+                            with session_scope() as session:
+                                r_repo = BaseRepository()
+                                r_repo.model = model_cls
+                                rec = session.get(model_cls, lid)
+                                if rec:
+                                    r_repo.mark_conflict(session, rec)
+                            self.conflict_occurred.emit(model_cls.__name__, lid)
+                except AuthRequiredError:
+                    raise
+                except Exception as e:
+                    logger.warning("Error pushing record %s id=%s: %s", model_cls.__name__, lid, e)
 
     def pull_remote_updates(self):
-        with session_scope() as session:
-            for model_cls in SYNC_MODELS:
-                repo = BaseRepository()
-                repo.model = model_cls
-                candidates = ENDPOINT_MAP.get(model_cls, [])
-                if isinstance(candidates, str):
-                    candidates = [candidates]
-                if not candidates:
+        for model_cls in SYNC_MODELS:
+            candidates = ENDPOINT_MAP.get(model_cls, [])
+            if isinstance(candidates, str):
+                candidates = [candidates]
+            if not candidates:
+                continue
+
+            model_name = model_cls.__name__
+            params = {}
+            last_time = self._last_pull_time.get(model_name)
+            if last_time:
+                params["updated_since"] = last_time
+
+            pull_start_time = dt.datetime.utcnow().isoformat()
+
+            try:
+                # Network request happens OUTSIDE any database session!
+                resp, _ = self._call_endpoint_candidates("GET", candidates, params=params)
+                if not resp or resp.status_code != 200:
                     continue
 
-                model_name = model_cls.__name__
-                params = {}
-                last_time = self._last_pull_time.get(model_name)
-                if last_time:
-                    params["updated_since"] = last_time
+                remote_items = resp.json()
+                if isinstance(remote_items, dict):
+                    if "data" in remote_items and isinstance(remote_items["data"], list):
+                        remote_items = remote_items["data"]
+                    elif "items" in remote_items and isinstance(remote_items["items"], list):
+                        remote_items = remote_items["items"]
+                    elif "results" in remote_items and isinstance(remote_items["results"], list):
+                        remote_items = remote_items["results"]
+                if not isinstance(remote_items, list):
+                    continue
 
-                pull_start_time = dt.datetime.utcnow().isoformat()
-
-                try:
-                    resp, _ = self._call_endpoint_candidates("GET", candidates, params=params)
-                    if not resp or resp.status_code != 200:
-                        continue
-
-                    remote_items = resp.json()
-                    if isinstance(remote_items, dict):
-                        if "data" in remote_items and isinstance(remote_items["data"], list):
-                            remote_items = remote_items["data"]
-                        elif "items" in remote_items and isinstance(remote_items["items"], list):
-                            remote_items = remote_items["items"]
-                        elif "results" in remote_items and isinstance(remote_items["results"], list):
-                            remote_items = remote_items["results"]
-                    if not isinstance(remote_items, list):
-                        continue
-
+                # Quick session to apply items into SQLite
+                with session_scope() as session:
+                    repo = BaseRepository()
+                    repo.model = model_cls
                     for item in remote_items:
                         r_id = item.get("id")
                         if not r_id:
                             continue
-
                         try:
                             local_record = repo.get_by_remote_id(session, r_id)
                             if local_record is None:
@@ -382,7 +408,6 @@ class SyncWorker(QThread):
                                     local_record = session.query(model_cls).filter(model_cls.name == name_val).first()
 
                             if local_record is None:
-                                # Create new local record from server item
                                 new_instance = model_cls()
                                 apply_remote_to_local(new_instance, item, session=session)
                                 new_instance.sync_status = "SYNCED"
@@ -391,31 +416,29 @@ class SyncWorker(QThread):
                                 session.flush()
                                 logger.info("Pulled NEW %s remote_id=%s", model_name, r_id)
                             else:
-                                # Link remote_id and update local record
                                 local_record.remote_id = r_id
                                 apply_remote_to_local(local_record, item, session=session)
                                 local_record.sync_status = "SYNCED"
                                 session.flush()
                         except Exception as item_err:
-                            session.rollback()
                             err_msg = str(item_err).encode("ascii", "replace").decode("ascii")
                             logger.warning("Error pulling item %s r_id=%s: %s", model_name, r_id, err_msg)
 
-                    self._last_pull_time[model_name] = pull_start_time
+                self._last_pull_time[model_name] = pull_start_time
 
-                except AuthRequiredError:
-                    raise
-                except Exception as e:
-                    session.rollback()
-                    err_msg = str(e).encode("ascii", "replace").decode("ascii")
-                    logger.warning("Error pulling updates for %s: %s", model_name, err_msg)
+            except AuthRequiredError:
+                raise
+            except Exception as e:
+                err_msg = str(e).encode("ascii", "replace").decode("ascii")
+                logger.warning("Error pulling updates for %s: %s", model_name, err_msg)
 
-            # Sync user accounts (e.g. veterinarians) from backend if available
-            try:
-                resp = self.api_client.request("GET", "users", timeout=10)
-                if resp and resp.status_code == 200:
-                    remote_users = resp.json()
-                    if isinstance(remote_users, list):
+        # Sync user accounts (e.g. veterinarians) from backend if available
+        try:
+            resp = self.api_client.request("GET", "users", timeout=10)
+            if resp and resp.status_code == 200:
+                remote_users = resp.json()
+                if isinstance(remote_users, list):
+                    with session_scope() as session:
                         role_cache = {r.name: r.id for r in session.query(Role).all()}
                         for u_data in remote_users:
                             u_name = u_data.get("username")
@@ -442,9 +465,8 @@ class SyncWorker(QThread):
                                     status="ACTIVE" if u_data.get("is_active", True) else "INACTIVE",
                                 )
                                 session.add(new_u)
-                        session.commit()
-            except Exception as e:
-                logger.debug("Optional user sync skipped: %s", e)
+        except Exception as e:
+            logger.debug("Optional user sync skipped: %s", e)
 
 
 class SyncService:

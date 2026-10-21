@@ -282,6 +282,7 @@ class RealAIService(AIServiceBase):
         alerted_track_ids = set()
         for idx, alt in enumerate(raw_alerts):
             t_id = alt.get("track_id", idx + 1)
+            ind_idx = alt.get("individual_index", idx + 1)
             alerted_track_ids.add(t_id)
 
             s_sec = alt.get("start_time_sec", 0.0)
@@ -289,6 +290,8 @@ class RealAIService(AIServiceBase):
             dur = alt.get("duration_sec", 0.0)
             s_frame = alt.get("start_frame", 0)
             e_frame = alt.get("end_frame", 0)
+            sub_tracks = alt.get("merged_track_ids", [t_id])
+            sub_info = f" (gộp các vết tracker #{', #'.join(map(str, sub_tracks))})" if len(sub_tracks) > 1 else ""
 
             tracks.append(DuckTrack(
                 track_id=t_id,
@@ -298,7 +301,7 @@ class RealAIService(AIServiceBase):
                 end_time=e_sec,
                 label="Hành vi bất thường",
                 confidence=0.92,
-                behavior_detail=f"Phát hiện HÀNH VI BẤT THƯỜNG (kéo dài {dur}s từ {s_sec}s đến {e_sec}s)",
+                behavior_detail=f"Cá thể #{ind_idx}: Phát hiện HÀNH VI BẤT THƯỜNG kéo dài {dur}s (từ {s_sec}s đến {e_sec}s){sub_info}",
             ))
 
             detections.append(AIDetection(
@@ -308,7 +311,7 @@ class RealAIService(AIServiceBase):
                 confidence=0.92,
                 behavior_label="Hành vi bất thường",
                 health_status="Bất thường",
-                notes=f"Cá thể ID:{t_id} có hành vi bất thường từ {s_sec}s đến {e_sec}s (Thời lượng: {dur}s)",
+                notes=f"Cá thể #{ind_idx} (Track #{t_id}) có hành vi bất thường từ {s_sec}s đến {e_sec}s (Thời lượng: {dur}s){sub_info}",
             ))
 
             alerts.append(AIAlertResult(
@@ -316,7 +319,7 @@ class RealAIService(AIServiceBase):
                 alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
                 severity=AlertSeverity.RED,
                 timestamp=s_sec,
-                description=f"CẢNH BÁO AI: Cá thể ID:{t_id} phát hiện HÀNH VI BẤT THƯỜNG (ngã, lật ngửa, giảm vận động) liên tục trong {dur}s (khung hình {s_frame}-{e_frame}).",
+                description=f"CẢNH BÁO AI: Cá thể #{ind_idx} phát hiện HÀNH VI BẤT THƯỜNG (lật ngửa / té ngã / bất động) liên tục trong {dur}s từ {s_sec}s đến {e_sec}s{sub_info}.",
             ))
 
         # If no alerts found, create representative normal track

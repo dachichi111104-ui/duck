@@ -38,80 +38,93 @@ class AIAnalysisService:
         """
         result: AIAnalysisResult = self._ai_service.analyze_video(video_path)
 
-        with session_scope() as session:
-            ai_session = AIAnalysisSession(
-                video_path=video_path,
-                file_name=metadata.file_name,
-                duration=metadata.duration_seconds,
-                resolution=metadata.resolution,
-                fps=metadata.fps,
-                completed_at=dt.datetime.now(),
-                status=result.status,
-                model_version=result.model_version,
-                notes=result.message,
-            )
-            self._session_repo.add(session, ai_session)
+        import time
 
-            has_sick_duck = False
-            sick_details = []
+        max_retries = 5
+        ai_session = None
 
-            for det in result.detections:
-                is_sick = (det.health_status == "Có bệnh" or "bệnh" in str(det.behavior_label).lower())
-                if is_sick:
-                    has_sick_duck = True
-                    sick_details.append(f"Cá thể ID:{det.track_id} - {det.behavior_label}")
+        for attempt in range(max_retries):
+            try:
+                with session_scope() as session:
+                    ai_session = AIAnalysisSession(
+                        video_path=video_path,
+                        file_name=metadata.file_name,
+                        duration=metadata.duration_seconds,
+                        resolution=metadata.resolution,
+                        fps=metadata.fps,
+                        completed_at=dt.datetime.now(),
+                        status=result.status,
+                        model_version=result.model_version,
+                        notes=result.message,
+                    )
+                    self._session_repo.add(session, ai_session)
 
-                self._detection_repo.add(session, AIDetectionResult(
-                    session_id=ai_session.id,
-                    track_id=det.track_id,
-                    timestamp=det.timestamp,
-                    bbox_x=det.bbox[0] if det.bbox else None,
-                    bbox_y=det.bbox[1] if det.bbox else None,
-                    bbox_width=det.bbox[2] if det.bbox else None,
-                    bbox_height=det.bbox[3] if det.bbox else None,
-                    confidence=det.confidence,
-                    behavior_label=det.behavior_label,
-                    health_status=det.health_status,
-                    notes=det.notes,
-                ))
+                    has_sick_duck = False
+                    sick_details = []
 
-            for alert in result.alerts:
-                self._alert_repo.add(session, AIAlert(
-                    session_id=ai_session.id,
-                    track_id=alert.track_id,
-                    alert_type=alert.alert_type,
-                    severity=alert.severity,
-                    timestamp=alert.timestamp,
-                    description=alert.description,
-                ))
+                    for det in result.detections:
+                        is_sick = (det.health_status == "Có bệnh" or "bệnh" in str(det.behavior_label).lower())
+                        if is_sick:
+                            has_sick_duck = True
+                            sick_details.append(f"Cá thể ID:{det.track_id} - {det.behavior_label}")
 
-            session.flush()  # ai_session.id is populated
+                        self._detection_repo.add(session, AIDetectionResult(
+                            session_id=ai_session.id,
+                            track_id=det.track_id,
+                            timestamp=det.timestamp,
+                            bbox_x=det.bbox[0] if det.bbox else None,
+                            bbox_y=det.bbox[1] if det.bbox else None,
+                            bbox_width=det.bbox[2] if det.bbox else None,
+                            bbox_height=det.bbox[3] if det.bbox else None,
+                            confidence=det.confidence,
+                            behavior_label=det.behavior_label,
+                            health_status=det.health_status,
+                            notes=det.notes,
+                        ))
 
-            # Create Alert Notification
-            if has_sick_duck or result.alerts:
-                summary_str = "; ".join(sick_details[:2]) if sick_details else "Phát hiện triệu chứng té ngã / giảm vận động."
-                session.add(Notification(
-                    alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
-                    severity=AlertSeverity.RED,
-                    title="CẢNH BÁO AI: Phát hiện vịt có dấu hiệu bệnh",
-                    message=f"Hệ thống AI vừa phát hiện cá thể bất thường trong video '{metadata.file_name}'. Chi tiết: {summary_str}",
-                    reference_type="ai_session",
-                    reference_id=ai_session.id,
-                    status=AlertStatus.UNREAD,
-                ))
-            else:
-                session.add(Notification(
-                    alert_type=AlertType.VIDEO_ANALYSIS_DONE,
-                    severity=AlertSeverity.GREEN,
-                    title="Phân tích video hoàn thành",
-                    message=f"Đã phân tích xong video '{metadata.file_name}'. Đàn vịt khỏe mạnh bình thường.",
-                    reference_type="ai_session",
-                    reference_id=ai_session.id,
-                    status=AlertStatus.UNREAD,
-                ))
+                    for alert in result.alerts:
+                        self._alert_repo.add(session, AIAlert(
+                            session_id=ai_session.id,
+                            track_id=alert.track_id,
+                            alert_type=alert.alert_type,
+                            severity=alert.severity,
+                            timestamp=alert.timestamp,
+                            description=alert.description,
+                        ))
 
-            session.flush()
-            session.expunge(ai_session)
+                    session.flush()  # ai_session.id is populated
+
+                    # Create Alert Notification
+                    if has_sick_duck or result.alerts:
+                        summary_str = "; ".join(sick_details[:2]) if sick_details else "Phát hiện triệu chứng té ngã / giảm vận động."
+                        session.add(Notification(
+                            alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
+                            severity=AlertSeverity.RED,
+                            title="CẢNH BÁO AI: Phát hiện vịt có dấu hiệu bệnh",
+                            message=f"Hệ thống AI vừa phát hiện cá thể bất thường trong video '{metadata.file_name}'. Chi tiết: {summary_str}",
+                            reference_type="ai_session",
+                            reference_id=ai_session.id,
+                            status=AlertStatus.UNREAD,
+                        ))
+                    else:
+                        session.add(Notification(
+                            alert_type=AlertType.VIDEO_ANALYSIS_DONE,
+                            severity=AlertSeverity.GREEN,
+                            title="Phân tích video hoàn thành",
+                            message=f"Đã phân tích xong video '{metadata.file_name}'. Đàn vịt khỏe mạnh bình thường.",
+                            reference_type="ai_session",
+                            reference_id=ai_session.id,
+                            status=AlertStatus.UNREAD,
+                        ))
+
+                    session.flush()
+                    session.expunge(ai_session)
+                break
+            except Exception as exc:
+                if "locked" in str(exc).lower() and attempt < max_retries - 1:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                raise
 
         log_action(actor, "AI_ANALYZE_VIDEO", metadata.file_name)
         return ai_session

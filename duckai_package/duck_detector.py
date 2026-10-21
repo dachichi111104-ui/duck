@@ -71,6 +71,7 @@ def analyze_video(
 
     # Theo dõi trạng thái cảnh báo để gộp thành các "đợt" liên tục
     open_alerts = {}  # track_id -> start_frame
+    alert_boxes = defaultdict(list)  # track_id -> [(cx, cy, w, h)]
     closed_alerts = []  # danh sách các đợt đã kết thúc
 
     MAX_DX_RATIO, MAX_DY_RATIO = 1.2, 1.0
@@ -169,19 +170,22 @@ def analyze_video(
 
             if is_confirmed_risk:
                 risky_track_ids.add(tid)
+                alert_boxes[tid].append((than_cx, than_cy, t["w"], t["h"]))
                 if tid not in open_alerts:
                     open_alerts[tid] = frame_idx  # bắt đầu 1 đợt cảnh báo mới
             else:
                 if tid in open_alerts:
                     # đợt cảnh báo vừa kết thúc -> chốt lại
                     start_f = open_alerts.pop(tid)
-                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps))
+                    boxes_list = alert_boxes.pop(tid, [])
+                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
         # Đóng các đợt cảnh báo của track đã biến mất hoàn toàn khỏi frame (bị mất track hẳn)
         for tid in list(open_alerts.keys()):
             if tid not in active_ids_this_frame:
                 start_f = open_alerts.pop(tid)
-                closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps))
+                boxes_list = alert_boxes.pop(tid, [])
+                closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
         # Vẽ bounding box và nhãn trực quan, chính xác lên frame
         if writer or on_frame:
@@ -210,7 +214,8 @@ def analyze_video(
 
     # Chốt các đợt cảnh báo vẫn còn mở khi video kết thúc
     for tid, start_f in open_alerts.items():
-        closed_alerts.append(_make_alert(tid, start_f, frame_idx - 1, fps))
+        boxes_list = alert_boxes.get(tid, [])
+        closed_alerts.append(_make_alert(tid, start_f, frame_idx - 1, fps, boxes_list))
 
     cap.release()
     if writer:
@@ -218,17 +223,24 @@ def analyze_video(
 
     closed_alerts.sort(key=lambda a: a["start_frame"])
 
+    # Hợp nhất các track ID bị nhảy/căn lại box tại cùng một vị trí không gian thành 1 CÁ THỂ duy nhất
+    merged_alerts = merge_spatial_temporal_alerts(closed_alerts)
+
     return {
         "video_path": video_path,
         "fps": fps,
         "total_frames": total_frames,
         "duration_sec": total_frames / fps if fps else 0.0,
-        "alerts": closed_alerts,
+        "alerts": merged_alerts,
         "annotated_video_path": save_annotated_path,
     }
 
 
-def _make_alert(track_id, start_frame, end_frame, fps):
+def _make_alert(track_id, start_frame, end_frame, fps, boxes_list=None):
+    cx = float(np.mean([b[0] for b in boxes_list])) if boxes_list else None
+    cy = float(np.mean([b[1] for b in boxes_list])) if boxes_list else None
+    w = float(np.mean([b[2] for b in boxes_list])) if boxes_list else None
+    h = float(np.mean([b[3] for b in boxes_list])) if boxes_list else None
     return {
         "track_id": track_id,
         "start_frame": start_frame,
@@ -236,4 +248,71 @@ def _make_alert(track_id, start_frame, end_frame, fps):
         "start_time_sec": round(start_frame / fps, 2) if fps else 0.0,
         "end_time_sec": round(end_frame / fps, 2) if fps else 0.0,
         "duration_sec": round((end_frame - start_frame) / fps, 2) if fps else 0.0,
+        "cx": cx,
+        "cy": cy,
+        "w": w,
+        "h": h,
     }
+
+
+def merge_spatial_temporal_alerts(alerts, max_distance_ratio=0.85, max_gap_sec=25.0):
+    """
+    Hợp nhất các cảnh báo thuộc cùng 1 cá thể vịt:
+    Khi vịt nằm bất động / lật ngửa, các khung hình bị che khuất hoặc tracker bị nhảy ID
+    (Track fragmentation / ID switch) sẽ tạo ra nhiều track_id khác nhau tại CÙNG MỘT VỊ TRÍ.
+    Hàm này nhóm lại theo khoảng cách tâm không gian (centroid distance) và khoảng thời gian,
+    đảm bảo 1 con vịt thực tế chỉ được tính là 1 cá thể duy nhất.
+    """
+    if not alerts:
+        return []
+
+    import math
+
+    alerts_sorted = sorted(alerts, key=lambda a: a["start_frame"])
+    merged = []
+
+    for alt in alerts_sorted:
+        cx, cy = alt.get("cx"), alt.get("cy")
+        w = alt.get("w") or 100.0
+        h = alt.get("h") or 100.0
+        matched_idx = None
+        min_dist = float("inf")
+
+        for idx, m in enumerate(merged):
+            m_cx, m_cy = m.get("cx"), m.get("cy")
+            m_w = m.get("w") or 100.0
+            m_h = m.get("h") or 100.0
+
+            if cx is not None and m_cx is not None:
+                dist = math.hypot(cx - m_cx, cy - m_cy)
+                avg_dim = (w + h + m_w + m_h) / 4.0
+                time_gap = alt["start_time_sec"] - m["end_time_sec"]
+
+                # Nếu cùng vị trí không gian (khoảng cách < 85% kích thước thân)
+                # và thời gian không cách nhau quá max_gap_sec -> CÙNG 1 CON VỊT
+                if dist <= avg_dim * max_distance_ratio and time_gap <= max_gap_sec:
+                    if dist < min_dist:
+                        min_dist = dist
+                        matched_idx = idx
+
+        if matched_idx is not None:
+            m = merged[matched_idx]
+            m["end_frame"] = max(m["end_frame"], alt["end_frame"])
+            m["end_time_sec"] = max(m["end_time_sec"], alt["end_time_sec"])
+            m["duration_sec"] = round(m["end_time_sec"] - m["start_time_sec"], 2)
+            if cx is not None and m.get("cx") is not None:
+                m["cx"] = (m["cx"] + cx) / 2.0
+                m["cy"] = (m["cy"] + cy) / 2.0
+            sub_tracks = m.setdefault("merged_track_ids", [m["track_id"]])
+            if alt["track_id"] not in sub_tracks:
+                sub_tracks.append(alt["track_id"])
+        else:
+            alt_copy = dict(alt)
+            alt_copy["merged_track_ids"] = [alt["track_id"]]
+            merged.append(alt_copy)
+
+    # Đánh số cá thể riêng biệt: Cá thể #1, Cá thể #2...
+    for i, m in enumerate(merged, start=1):
+        m["individual_index"] = i
+
+    return merged

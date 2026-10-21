@@ -34,7 +34,7 @@ def get_engine() -> Engine:
             db_url,
             echo=False,
             future=True,
-            connect_args={"check_same_thread": False, "timeout": 30.0} if db_url.startswith("sqlite") else {},
+            connect_args={"check_same_thread": False, "timeout": 60.0} if db_url.startswith("sqlite") else {},
         )
 
         if db_url.startswith("sqlite"):
@@ -43,7 +43,7 @@ def get_engine() -> Engine:
                 cursor = dbapi_connection.cursor()
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA busy_timeout=30000")
+                cursor.execute("PRAGMA busy_timeout=60000")
                 cursor.close()
 
     return _engine
