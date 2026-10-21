@@ -219,9 +219,9 @@ class AIMonitoringView(QWidget):
             sc_hdr.addWidget(StatusBadge("MODEL THẬT ACTIVE", tone="success"))
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
-                "<b>Mô hình tích hợp:</b> YOLOv8 Lật Ngửa (duckai_package/best.pt)<br>"
-                "<b>Nhiệm vụ:</b> Detect Than/Chân + Tracking BoT-SORT + Cảnh báo Lật Ngửa<br>"
-                "<b>Trạng thái:</b> Đã cắm Model thật thành công"
+                "<b>Mô hình tích hợp:</b> YOLOv8 Hành Vi & Lật Ngửa (Run A - 20261021)<br>"
+                "<b>Nhiệm vụ:</b> Detect Thân/Chân + Tracking BoT-SORT + Cảnh báo Hành vi / Lật Ngửa<br>"
+                "<b>Trạng thái:</b> Đã tích hợp Model mới nhất thành công"
             )
         else:
             sc_hdr.addWidget(StatusBadge("MODEL MÔ PHỎNG", tone="warning"))

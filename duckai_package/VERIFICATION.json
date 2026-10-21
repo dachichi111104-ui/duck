@@ -1,0 +1,27 @@
+{
+  "status": "passed_existing_environment",
+  "unit_tests_passed": 31,
+  "behavior_suspect_seconds": 30,
+  "behavior_alert_seconds": 40,
+  "smoke_checks": [
+    {
+      "mode": "behavior",
+      "decoded_output_frames": 90,
+      "model_sha256": "8214b0827bde3bee4eb4fc9597f942c7a091a3f337d3db82efdb151032a9828f",
+      "real_video_smoke_only_not_behavior_accuracy": true
+    },
+    {
+      "mode": "lat-ngua",
+      "decoded_output_frames": 90,
+      "model_sha256": "2cccdc87f5fc9a1b64530b142aafa5f01145abf2bdd0be455ed861ea72c149f6",
+      "real_video_smoke_only_not_behavior_accuracy": true
+    }
+  ],
+  "existing_output_overwrite_guard_passed": true,
+  "clean_install_tested": false,
+  "cpu_install_script_executed": false,
+  "file_dialog_manually_tested": false,
+  "full_14_clip_rerun_at_40_seconds": false,
+  "synthetic_40_second_boundary_test_passed": true,
+  "notice": "No validation of disease diagnosis, behavior accuracy or real-time performance."
+}

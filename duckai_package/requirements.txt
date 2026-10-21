@@ -1,4 +1,8 @@
-ultralytics
-opencv-python
-numpy
-lap
+# Python 3.11 x64. SETUP.cmd installs CPU PyTorch first.
+# Tested project environment used CUDA 12.4; clean CPU installation not tested here.
+torch==2.5.1
+torchvision==0.20.1
+ultralytics==8.4.160
+opencv-python==5.0.0.93
+numpy==2.4.6
+lap==0.5.13

@@ -215,11 +215,11 @@ def _patch_torchvision_nms():
 
 class RealAIService(AIServiceBase):
     """
-    Real AI Service integration for Ultralytics YOLOv8 + Duck Inverted (Lật Ngửa) Behavior Detection.
-    Uses duckai_package/best.pt and duckai_package/duck_detector.py pipeline.
+    Real AI Service integration for Ultralytics YOLOv8 + Duck Behavior & Inverted Detection.
+    Uses duckai_package/best.pt (Run A weights) and duckai_package/duck_detector.py pipeline.
     """
 
-    MODEL_VERSION = "YOLOv8-DuckLatNgua-v1.0"
+    MODEL_VERSION = "YOLOv8-DuckBehavior-v2.0"
 
     def __init__(self, weights_path: str | None = None) -> None:
         from pathlib import Path

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "calibration_status": "uncalibrated_prototype",
+  "description": "Demo setting: suspect after 30 seconds and alert after 40 continuous seconds. Not a validated disease threshold or diagnosis.",
+  "rules": {
+    "min_flock_size": 4,
+    "min_body_height_px": 12.0,
+    "center_distance_ratio": 3.0,
+    "neighbor_distance_ratio": 2.5,
+    "relative_speed_max": 0.25,
+    "own_speed_max_body_sec": 0.15,
+    "active_peer_min_body_sec": 0.10,
+    "suspect_after_sec": 30.0,
+    "alert_after_sec": 40.0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "files": {
+    "BASELINE_14_CLIPS.md": "d2ae0a82760508c790b4ef064eee8580f7c076ed0334f2aa6e947ff0ef5423b2",
+    "configs/duck_behavior_rules.json": "8d33a78829c04da6b43cbe520cf031fe735a4d7e53cf6b07e0b56c31c0fb02d2",
+    "configs/duck_behavior_rules_baseline60.json": "d013c72f9ee9e7399b4fe404ee68eb20e05f9bf39fbac4852da67f08075fc107",
+    "configs/duck_botsort.yaml": "77fb23a417253fca00d4b8a8b4d3cd1d02bc2f98be8987da1b5a542ed72f0ab3",
+    "demo.py": "11caccdab5c269d061375a558e2a8c19f1416d53bc315bfa004e78571d4cd09c",
+    "legacy/duck_detector.py": "ee8bcbf7db0eeb50dc1943b656398512ee1679c4147f1653ba75cba43b0d8cd7",
+    "models/behavior_runA.pt": "8214b0827bde3bee4eb4fc9597f942c7a091a3f337d3db82efdb151032a9828f",
+    "models/lat_ngua_v1_5.pt": "2cccdc87f5fc9a1b64530b142aafa5f01145abf2bdd0be455ed861ea72c149f6",
+    "README.md": "3dd0c37267d34d94461097b71066b18c7773f9a8077ce42d180a8a38e6840fcf",
+    "requirements.txt": "c988cd596eac9ea3d3b1060748a347f848b5fc8393b69d7e8e8f14601adccb13",
+    "RUN_DEMO.cmd": "56ba306f0745c9efd2dc86beb212fcfa57aa54a552d0318112799be24e61c61c",
+    "RUN_LAT_NGUA.cmd": "af53455238b38dd4c32ba98bc11a4b0172ecdd6520b0da5b292c926a21e9a3f7",
+    "SETUP.cmd": "32b32d464e0739b3de4e5e586040a4c02b39935f712823c271d0615e5e8c26be",
+    "tests/test_duck_behavior_rules.py": "cc024f39c78c82b12b3a70c38778e0af0daf1f950019aadaeb1399170ffe0e9b",
+    "tests/test_nestler_metrics.py": "70fbe06b46f3a16d91adb6b87cf0c2cbbe44b880cf27dae5e6bc88c1440e4886",
+    "tools/duck_behavior_demo.py": "8f784d10799c556e8786c648962a7f615648228e7fd886545bd0446fa844a051",
+    "tools/duck_behavior_rules.py": "e17c2ce7e4c4c46c4fe9240843e3235dabbb12b4503cf6231b679cb199a41a03",
+    "tools/duck_camera_motion.py": "df400af5f19c8780bf069cfa64b0e96888d840abe09c5812f29c11d8af8532bb",
+    "tools/nestler_metrics.py": "0956b8aa89692596f0206efb08408c3f1ce263f91f67abb3dd38cac180f267e6",
+    "VERIFICATION.json": "b749df11df2ae6951bd6dfbbc9bd81c07774402926b84933ced26c56c2cb4f1c",
+    "VERSION.json": "ea6676a63f3e64a2bcd157a86f57a9b49c05841264525cdf70be3eaeae0fb2db"
+  }
+}

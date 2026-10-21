@@ -1,102 +1,50 @@
-# Duck Lật Ngửa Detector — Module tích hợp (bản demo)
+# Demo tiến độ Duck AI
 
-Module nhận diện nguy cơ vịt bị lật ngửa từ video, dùng YOLOv8 (nhận diện
-thân/chân) + tracking + rule hình học + kiểm tra theo thời gian. Đây là bản
-demo để kiểm tra tích hợp vào phần mềm quản lý — **chưa phải bản cuối cùng**.
+Phiên bản `0.2.0-demo40` ngày 21/10/2026. Gói mã nguồn và weights để thử nghiệm trên Windows, không phải file EXE và không phải bản hoàn thiện.
 
-## Cài đặt
+## Chạy cho người mới
 
-```bash
-pip install -r requirements.txt
+1. Giải nén ZIP ra một thư mục, ví dụ `C:\DuckAI_Demo`. Không chạy trực tiếp bên trong ZIP.
+2. Máy cần Python **3.11 bản 64-bit**, có Python Launcher và Tkinter. Nếu đã có Python 3.11, có thể bỏ qua cài Python.
+3. Trong thư mục vừa giải nén, nhấp đúp **SETUP.cmd**. Cần mạng để tải thư viện; lần đầu có thể lâu và cần vài GB trống. Không cần quyền Administrator và không cần Activate.ps1.
+4. Sau khi cài xong, nhấp đúp **RUN_DEMO.cmd**, chọn video vịt trong cửa sổ hiện ra.
+5. Đợi cửa sổ báo `Finished`. Mở thư mục **outputs**, mở thư mục lượt chạy mới nhất, rồi mở **behavior_preview.mp4**.
+
+Mỗi lần chạy có thư mục riêng, không ghi đè lượt trước. Pipeline xử lý offline rồi mới xuất preview; chưa có giao diện phát hiện trực tiếp hoặc cam kết realtime. Preview không giữ âm thanh nguồn.
+
+Để xem lại chức năng cũ, nhấp đúp **RUN_LAT_NGUA.cmd**. Video kết quả của chế độ đó là **lat_ngua_preview.mp4**. Hai chế độ được chạy riêng, chưa tích hợp trong cùng một lượt phát hiện.
+
+Nếu cài hoặc chạy lỗi, giữ cửa sổ lại và gửi ảnh hoặc phần thông báo lỗi. Không cần tự đọc các CSV.
+
+## Bản này có những gì
+
+- **Hành vi mới**: weights Run A, BoT-SORT, đo khoảng cách đàn, tốc độ tương đối, bù camera gần đúng và rule theo thời gian.
+- Ngưỡng **nghi ngờ 30 giây, cảnh báo 40 giây liên tục**, chỉ áp dụng chế độ hành vi mới. Xám là thiếu dữ liệu; xanh là chưa đạt điều kiện hiện tại; vàng là quan sát; cam là nghi ngờ; đỏ là cảnh báo hành vi.
+- **Lật ngửa cũ**: giữ mã module và weights v1-5 của ZIP demo cũ, chạy bằng một chế độ riêng. Không thay thời gian cửa sổ lật ngửa thành 40 giây.
+- Weights không được train lại. Thay đổi mới là cấu hình cảnh báo hành vi 40 giây và cách đóng gói để chạy trên máy khác.
+
+## Giới hạn cần nói rõ khi demo
+
+- Chưa sửa box trùng, mất/đổi ID, gộp track từ ô chuồng bên cạnh hoặc reset do dao động một frame.
+- Một track không nhất thiết là một con thật. Cần đủ đàn nhìn thấy và đúng đàn mục tiêu mới có ý nghĩa đối chứng.
+- Mất quan sát hoặc đổi ID vẫn ngắt bộ đếm. Giảm 60 xuống 40 giây không bảo đảm video thật sẽ xuất hiện box đỏ.
+- Dùng FPS trung bình để đo thời gian; video FPS biến đổi có sai lệch so với timestamp nguồn. Chưa hiệu chuẩn mặt sàn.
+- Chưa có độ chính xác hành vi được xác nhận bằng nhãn. Chưa nhận diện riêng gãy chân, liệt, bị tật hoặc bệnh truyền nhiễm.
+- Kết quả 14 video trong báo cáo kèm theo là **baseline 60 giây**, không phải kết quả chạy lại toàn bộ ở ngưỡng 40 giây.
+- Kiểm tra tổng hợp mốc 40 giây chỉ kiểm tra logic phần mềm, không thay thế ca vịt thật có nhãn. Xem `VERIFICATION.json` để biết kiểm thử nào thực sự đã chạy.
+
+## Dành cho người phát triển
+
+Ở PowerShell trong thư mục gói:
+
+```powershell
+& ".\.venv\Scripts\python.exe" ".\demo.py" --video "C:\Videos\vit.mp4"
+& ".\.venv\Scripts\python.exe" ".\demo.py" --mode lat-ngua --video "C:\Videos\vit.mp4"
+& ".\.venv\Scripts\python.exe" -B -m unittest discover -s tests -v
 ```
 
-Cần thêm file weight model `best.pt` — copy từ dự án gốc vào cùng thư mục
-với `duck_detector.py` (hoặc chỉ đường dẫn tuỳ ý khi gọi hàm).
+Hai weights có tên khác nhau để không dùng nhầm: `models/behavior_runA.pt` và `models/lat_ngua_v1_5.pt`. Cấu hình hiện tại ở `configs/duck_behavior_rules.json`; cấu hình tham chiếu 60 giây ở `configs/duck_behavior_rules_baseline60.json`. Mã phụ trợ ở `tools/`; module lật ngửa cũ ở `legacy/`.
 
-## Cách dùng cơ bản
+`SETUP.cmd` chọn PyTorch CPU để không phụ thuộc CUDA trên máy nhận; chạy CPU có thể chậm. Môi trường đã thử trước đó dùng Python 3.11 và PyTorch CUDA. Không cam kết cài mới CPU đã được thử nếu `VERIFICATION.json` ghi chưa thử. Chỉ dùng weights tin cậy vì checkpoint PyTorch có thể chứa mã thực thi.
 
-```python
-from duck_detector import analyze_video
-
-result = analyze_video(
-    video_path="video_can_kiem_tra.mp4",
-    model_path="best.pt",
-)
-
-for alert in result["alerts"]:
-    print(f"Vịt #{alert['track_id']} nghi lật ngửa từ giây "
-          f"{alert['start_time_sec']} đến {alert['end_time_sec']}")
-```
-
-## Kết quả trả về
-
-Hàm `analyze_video()` trả về 1 dict:
-
-```python
-{
-    "video_path": str,
-    "fps": float,
-    "total_frames": int,
-    "duration_sec": float,
-    "alerts": [
-        {
-            "track_id": int,          # ID con vịt trong video (chỉ có ý
-                                       # nghĩa trong phạm vi video này)
-            "start_frame": int,
-            "end_frame": int,
-            "start_time_sec": float,
-            "end_time_sec": float,
-            "duration_sec": float,
-        },
-        ...
-    ],
-    "annotated_video_path": str | None,
-}
-```
-
-`alerts` rỗng (`[]`) nghĩa là không phát hiện ca nghi ngờ nào trong video.
-
-## Tích hợp hiển thị trực tiếp lên GUI (PyQt6)
-
-Nếu muốn hiện preview/progress bar trong lúc xử lý (thay vì đợi xong mới có
-kết quả), dùng tham số `on_frame`:
-
-```python
-def on_frame(frame_bgr, frame_idx, total_frames, risky_track_ids):
-    # frame_bgr là numpy array (OpenCV BGR) - convert sang QImage để hiển
-    # thị trên QLabel, ví dụ:
-    #   rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    #   qimg = QImage(rgb.data, w, h, QImage.Format.Format_RGB888)
-    # risky_track_ids: list ID đang bị cảnh báo ở frame này -> có thể
-    # dùng để bật đèn cảnh báo / phát âm thanh ngay lập tức.
-    ...
-
-result = analyze_video(video_path=..., model_path=..., on_frame=on_frame)
-```
-
-## Xem lại video có chú thích (debug/demo)
-
-Truyền `save_annotated_path="output.mp4"` để lưu video có vẽ bbox + nhãn
-cảnh báo, tiện xem lại kết quả bằng mắt.
-
-## Giới hạn cần biết (quan trọng khi đánh giá tích hợp)
-
-- Đây là **rule-based heuristic**, không phải model phân loại end-to-end —
-  có thể có sai số, đặc biệt ở điều kiện quay khác với dữ liệu train.
-- Model hiện train trên dữ liệu **1 trại duy nhất**, số lượng ảnh còn hạn
-  chế — độ chính xác ở trại/ánh sáng/góc quay khác chưa được kiểm chứng.
-- `track_id` chỉ có ý nghĩa trong PHẠM VI 1 VIDEO — không dùng để nhận diện
-  lại cùng 1 con vịt ở video khác hoặc ngày khác.
-- Cần GPU (khuyến nghị) để xử lý real-time; chạy CPU vẫn được nhưng chậm
-  hơn — cần benchmark cụ thể nếu tích hợp vào luồng xử lý real-time từ
-  camera trực tiếp.
-- Đây là bản demo kiểm tra tích hợp — các tham số ngưỡng (`conf`, `ratio`,
-  `move_thresh`, `span_ratio`...) có thể cần tinh chỉnh thêm khi có thêm
-  dữ liệu thực tế.
-
-## File trong gói này
-
-- `duck_detector.py` — module chính, chứa hàm `analyze_video()`.
-- `demo.py` — script ví dụ minh hoạ cách gọi.
-- `requirements.txt` — danh sách thư viện cần cài.
-- `best.pt` — **cần tự copy vào** (không kèm sẵn trong gói code).
+Gói không mang theo `.venv`, IDE, dataset, video riêng tư hoặc kết quả CSV lớn. Các thư viện phụ thuộc có giấy phép riêng; gói không phân phối các thư viện đã cài sẵn.

@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0-demo40",
+  "release_date": "2026-10-21",
+  "behavior_model": "Run A YOLOv8n",
+  "behavior_model_sha256": "8214b0827bde3bee4eb4fc9597f942c7a091a3f337d3db82efdb151032a9828f",
+  "legacy_model": "v1-5 from original legacy demo",
+  "legacy_model_sha256": "2cccdc87f5fc9a1b64530b142aafa5f01145abf2bdd0be455ed861ea72c149f6",
+  "suspect_seconds": 30,
+  "alert_seconds": 40,
+  "weights_retrained": false,
+  "box_tracking_issues_fixed": false,
+  "combined_single_pass": false,
+  "legacy_rule_modified": false,
+  "baseline_batch_alert_seconds": 60,
+  "packaging_environment": {
+    "torch": "2.5.1+cu124",
+    "torchvision": "0.20.1+cu124",
+    "ultralytics": "8.4.160",
+    "opencv-python": "5.0.0.93",
+    "numpy": "2.4.6",
+    "lap": "0.5.13"
+  }
+}
