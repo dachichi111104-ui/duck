@@ -10,7 +10,7 @@ from app.ui.components.table_helpers import build_table, set_row
 from app.ui.components.empty_state import EmptyState
 from app.ui.flocks.flock_event_dialog import FlockEventDialog
 from app.ui.flocks.production_dialog import ProductionRecordDialog
-from app.config.constants import FlockEventType, VetRecordStatus, Roles
+from app.config.constants import FlockEventType, VetRecordStatus, Roles, FlockStatus
 
 
 class FlockDetailView(QWidget):
@@ -98,7 +98,7 @@ class FlockDetailView(QWidget):
             ("Số lượng hiện tại", f.current_count),
             ("Số chết", f.dead_count),
             ("Tỷ lệ sống", f"{f.survival_rate}%"),
-            ("Trạng thái", f.status),
+            ("Trạng thái", FlockStatus.LABELS_VI.get(f.status, f.status)),
             ("Ghi chú", f.notes or "-"),
         ]
         for label, value in rows:

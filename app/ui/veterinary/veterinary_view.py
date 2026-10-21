@@ -47,7 +47,7 @@ class VeterinaryView(QWidget):
 
         self.status_filter = QComboBox()
         self.status_filter.addItem("Tất cả trạng thái bệnh án", None)
-        for value, label in VetRecordStatus.LABELS_VI.items():
+        for value, label in VetRecordStatus.CANONICAL_CHOICES:
             self.status_filter.addItem(label, value)
         self.status_filter.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.status_filter)

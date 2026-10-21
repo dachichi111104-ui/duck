@@ -87,7 +87,7 @@ class AIAnalysisService:
 
             session.flush()  # ai_session.id is populated
 
-            # AUTOMATED WORKFLOW: Create Red Alert Notification & Auto-Suggest Vet Record
+            # Create Alert Notification
             if has_sick_duck or result.alerts:
                 summary_str = "; ".join(sick_details[:2]) if sick_details else "Phát hiện triệu chứng té ngã / giảm vận động."
                 session.add(Notification(
@@ -99,46 +99,6 @@ class AIAnalysisService:
                     reference_id=ai_session.id,
                     status=AlertStatus.UNREAD,
                 ))
-
-                # Link Veterinary Record to user-selected flock or active flock fallback
-                target_flock = None
-                if flock_id:
-                    target_flock = session.get(Flock, flock_id)
-                if not target_flock:
-                    target_flock = session.query(Flock).filter(Flock.status.in_(("ACTIVE", "ACTIVE", "Hoạt động"))).first()
-                if not target_flock:
-                    target_flock = session.query(Flock).first()
-                if not target_flock:
-                    target_flock = Flock(
-                        flock_code="DV001",
-                        name="Đàn Vịt Trời Mặc Định AI",
-                        start_date=dt.date.today(),
-                        initial_count=500,
-                        current_count=500,
-                        status="ACTIVE",
-                        notes="Tự động tạo bởi hệ thống AI",
-                    )
-                    session.add(target_flock)
-                    session.flush()
-
-                # Map to Disease "Lật ngửa" if exists in database
-                dis_lat_ngua = session.query(Disease).filter(Disease.name.ilike("%Lật ngửa%")).first()
-                dis_id = dis_lat_ngua.id if dis_lat_ngua else None
-
-                vet_rec = VeterinaryRecord(
-                    flock_id=target_flock.id,
-                    disease_id=dis_id,
-                    diagnosis_date=dt.date.today(),
-                    diagnosis="Hành vi bất thường: Té ngã / Lật ngửa / Bất động (AI)",
-                    animal_reference="1 cá thể (AI)",
-                    symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
-                    treatment="Cách ly theo dõi cá thể có hành vi bất thường, kiểm tra sức khỏe và hỗ trợ hồi phục.",
-                    veterinarian=actor or "Hệ thống AI tự động",
-                    status=VetRecordStatus.THEO_DOI,
-                    source="AI_ANALYSIS",
-                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id} (Nhận diện hành vi bất thường)",
-                )
-                session.add(vet_rec)
             else:
                 session.add(Notification(
                     alert_type=AlertType.VIDEO_ANALYSIS_DONE,

@@ -17,7 +17,7 @@ from app.ui.flocks.flock_detail_view import FlockDetailView
 from app.utils.validators import ValidationError
 from app.config.constants import FlockStatus, Roles
 
-COLUMNS = ["Tên đàn", "Chuồng", "SL ban đầu", "SL hiện tại", "Hao hụt", "Tỷ lệ sống", "Ngày nhập", "Trạng thái sức khỏe"]
+COLUMNS = ["Tên đàn", "Chuồng", "SL ban đầu", "SL hiện tại", "Hao hụt", "Tỷ lệ sống", "Ngày nhập", "Trạng thái đàn", "Sức khỏe"]
 
 
 class FlockListView(QWidget):
@@ -60,8 +60,12 @@ class FlockListView(QWidget):
 
         self.status_filter = QComboBox()
         self.status_filter.addItem("Tất cả trạng thái", None)
-        for s in (FlockStatus.ACTIVE, FlockStatus.COMPLETED, FlockStatus.CANCELLED):
-            self.status_filter.addItem(s, s)
+        self.status_filter.addItem("Đang nuôi (Hoạt động)", FlockStatus.ACTIVE)
+        self.status_filter.addItem("Giai đoạn Úm vịt", FlockStatus.BROODING)
+        self.status_filter.addItem("Nuôi thịt / Hậu bị", FlockStatus.GROWING)
+        self.status_filter.addItem("Đang đẻ trứng", FlockStatus.LAYING)
+        self.status_filter.addItem("Đã xuất chuồng", FlockStatus.COMPLETED)
+        self.status_filter.addItem("Đã hủy", FlockStatus.CANCELLED)
         self.status_filter.currentIndexChanged.connect(self._apply_filters)
         toolbar.addWidget(self.status_filter, 1)
 
@@ -114,7 +118,10 @@ class FlockListView(QWidget):
                 item.widget().deleteLater()
 
         total_ducks = sum(f.current_count for f in self._all_flocks)
-        active_flocks = sum(1 for f in self._all_flocks if f.status == FlockStatus.ACTIVE)
+        active_flocks = sum(
+            1 for f in self._all_flocks
+            if str(f.status or "").upper() not in (FlockStatus.COMPLETED, FlockStatus.CANCELLED)
+        )
         total_initial = sum(f.initial_count for f in self._all_flocks)
         total_current = sum(f.current_count for f in self._all_flocks)
         avg_survival = round((total_current / total_initial * 100), 1) if total_initial > 0 else 100.0
@@ -132,6 +139,15 @@ class FlockListView(QWidget):
         self._update_kpi_cards()
         self._apply_filters()
 
+    @staticmethod
+    def _matches_flock_status(flock_status: str | None, filter_val: str | None) -> bool:
+        if not filter_val:
+            return True
+        st = str(flock_status or "").upper()
+        if filter_val == FlockStatus.ACTIVE:
+            return st not in (FlockStatus.COMPLETED, FlockStatus.CANCELLED)
+        return st == filter_val.upper()
+
     def _apply_filters(self) -> None:
         text = self.search_input.text().strip().lower()
         status = self.status_filter.currentData()
@@ -139,17 +155,28 @@ class FlockListView(QWidget):
         filtered = [
             f for f in self._all_flocks
             if (not text or text in f.flock_code.lower() or text in f.name.lower())
-            and (not status or f.status == status)
+            and self._matches_flock_status(f.status, status)
         ]
+
+        stage_labels = {
+            "BROODING": "Úm vịt",
+            "GROWING": "Nuôi thịt / Hậu bị",
+            "LAYING": "Đang đẻ trứng",
+            "ACTIVE": "Đang nuôi",
+            "COMPLETED": "Đã xuất chuồng",
+            "CANCELLED": "Đã hủy",
+        }
 
         self.table.setRowCount(len(filtered))
         for row, f in enumerate(filtered):
             survival = f.survival_rate
-            health_badge = "Healthy" if f.dead_count == 0 else "Monitoring"
+            st_key = str(f.status or "").upper()
+            stage_badge = stage_labels.get(st_key, str(f.status or "Đang nuôi"))
+            health_badge = "Khỏe mạnh" if f.dead_count == 0 else "Cần theo dõi"
             set_row(self.table, row, [
                 f.name, f.barn.name if f.barn else "-",
                 f.initial_count, f.current_count, f.dead_count,
-                f"{survival}%", f.start_date.isoformat(), health_badge,
+                f"{survival}%", f.start_date.isoformat(), stage_badge, health_badge,
             ], row_data=f.id)
 
         self.table.setVisible(bool(filtered))

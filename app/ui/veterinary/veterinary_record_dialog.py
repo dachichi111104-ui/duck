@@ -53,13 +53,13 @@ class VeterinaryRecordDialog(QDialog):
 
         # Veterinarian selection / assignment
         self.veterinarian_combo = QComboBox()
-        self.veterinarian_combo.setEditable(True)
+        self.veterinarian_combo.setEditable(False)
         for v in self.vets_list:
             display_name = f"{v.full_name} ({v.username})" if v.full_name != v.username else v.full_name
             self.veterinarian_combo.addItem(display_name, v.full_name)
 
         self.status_combo = QComboBox()
-        for value, label in VetRecordStatus.LABELS_VI.items():
+        for value, label in VetRecordStatus.CANONICAL_CHOICES:
             self.status_combo.addItem(label, value)
 
         form.addRow("Đàn *", self.flock_combo)
@@ -111,6 +111,16 @@ class VeterinaryRecordDialog(QDialog):
                     self.veterinarian_combo.addItem(record.veterinarian, record.veterinarian)
                     self.veterinarian_combo.setCurrentText(record.veterinarian)
             idx = self.status_combo.findData(record.status)
+            if idx < 0:
+                s_up = str(record.status or "").upper()
+                if s_up in ("THEO_DOI", "MONITORING", "UNDER_MONITORING"):
+                    idx = self.status_combo.findData(VetRecordStatus.THEO_DOI)
+                elif s_up in ("DANG_DIEU_TRI", "TREATING", "ACTIVE_TREATMENT"):
+                    idx = self.status_combo.findData(VetRecordStatus.DANG_DIEU_TRI)
+                elif s_up in ("DA_KHOI", "RECOVERED", "HEALED"):
+                    idx = self.status_combo.findData(VetRecordStatus.DA_KHOI)
+                elif s_up in ("CAN_TAI_KHAM", "CULLED", "REEXAMINE"):
+                    idx = self.status_combo.findData(VetRecordStatus.CAN_TAI_KHAM)
             if idx >= 0:
                 self.status_combo.setCurrentIndex(idx)
         else:

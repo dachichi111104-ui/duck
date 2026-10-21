@@ -82,8 +82,22 @@ class BarnStatus:
 
 class FlockStatus:
     ACTIVE = "ACTIVE"
+    BROODING = "BROODING"
+    GROWING = "GROWING"
+    LAYING = "LAYING"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+
+    ACTIVE_STATUSES = {ACTIVE, BROODING, GROWING, LAYING}
+
+    LABELS_VI = {
+        ACTIVE: "Đang nuôi (Hoạt động)",
+        BROODING: "Giai đoạn Úm vịt",
+        GROWING: "Nuôi thịt / Hậu bị",
+        LAYING: "Đang đẻ trứng",
+        COMPLETED: "Đã xuất chuồng",
+        CANCELLED: "Đã hủy",
+    }
 
 
 class FlockEventType:
@@ -118,6 +132,13 @@ class VetRecordStatus:
     DANG_DIEU_TRI = "DANG_DIEU_TRI"
     DA_KHOI = "DA_KHOI"
     CAN_TAI_KHAM = "CAN_TAI_KHAM"
+
+    CANONICAL_CHOICES = [
+        (THEO_DOI, "Theo dõi"),
+        (DANG_DIEU_TRI, "Đang điều trị"),
+        (DA_KHOI, "Đã khỏi"),
+        (CAN_TAI_KHAM, "Cần tái khám"),
+    ]
 
     LABELS_VI = {
         THEO_DOI: "Theo dõi",

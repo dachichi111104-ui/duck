@@ -45,7 +45,7 @@ class DashboardService:
             data.total_flocks = len(flocks)
             data.total_ducks = sum(f.current_count for f in flocks)
             data.flocks_under_watch = sum(
-                1 for f in flocks if f.status == FlockStatus.ACTIVE and f.dead_count > 0
+                1 for f in flocks if str(f.status).upper() not in (FlockStatus.COMPLETED, FlockStatus.CANCELLED) and f.dead_count > 0
             )
 
             records = self._prod_repo.get_since(session, since)

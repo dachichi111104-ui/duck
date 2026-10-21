@@ -51,7 +51,7 @@ class VaccinationDialog(QDialog):
 
         # Veterinarian assignment / selection
         self.veterinarian_combo = QComboBox()
-        self.veterinarian_combo.setEditable(True)
+        self.veterinarian_combo.setEditable(False)
         for v in self.vets_list:
             display_name = f"{v.full_name} ({v.username})" if v.full_name != v.username else v.full_name
             self.veterinarian_combo.addItem(display_name, v.full_name)
