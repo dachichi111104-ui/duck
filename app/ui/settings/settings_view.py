@@ -65,7 +65,7 @@ class SettingsView(QWidget):
         self.conf_spin.setSingleStep(0.05)
         self.conf_spin.setValue(0.75)
 
-        self.auto_alert_cb = QCheckBox("Tự động tạo thông báo khi phát hiện vịt lật ngửa / té ngã")
+        self.auto_alert_cb = QCheckBox("Tự động tạo cảnh báo và mở bệnh án khi AI phát hiện Bệnh Lật ngửa")
         self.auto_alert_cb.setChecked(True)
 
         self.fps_limit_combo = QComboBox()

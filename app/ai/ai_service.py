@@ -219,7 +219,7 @@ class RealAIService(AIServiceBase):
     Uses duckai_package/best.pt (Run A weights) and duckai_package/duck_detector.py pipeline.
     """
 
-    MODEL_VERSION = "YOLOv8-DuckBehavior-v2.0"
+    MODEL_VERSION = "YOLOv8-DuckInverted-v2.0"
 
     def __init__(self, weights_path: str | None = None) -> None:
         from pathlib import Path
@@ -292,7 +292,7 @@ class RealAIService(AIServiceBase):
                 end_time=e_sec,
                 label="Có bệnh",
                 confidence=0.92,
-                behavior_detail=f"Phát hiện nguy cơ LẬT NGỬA (kéo dài {dur}s từ {s_sec}s đến {e_sec}s)",
+                behavior_detail=f"Phát hiện BỆNH LẬT NGỬA (kéo dài {dur}s từ {s_sec}s đến {e_sec}s)",
             ))
 
             detections.append(AIDetection(
@@ -300,7 +300,7 @@ class RealAIService(AIServiceBase):
                 timestamp=s_sec,
                 frame_idx=s_frame,
                 confidence=0.92,
-                behavior_label="Nghi ngờ Lật Ngửa",
+                behavior_label="Nghi ngờ Bệnh Lật Ngửa",
                 health_status="Có bệnh",
                 notes=f"Cá thể ID:{t_id} lật ngửa từ {s_sec}s đến {e_sec}s (Thời lượng: {dur}s)",
             ))
@@ -310,7 +310,7 @@ class RealAIService(AIServiceBase):
                 alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
                 severity=AlertSeverity.RED,
                 timestamp=s_sec,
-                description=f"CẢNH BÁO AI: Cá thể ID:{t_id} phát hiện nghi ngờ LẬT NGỬA liên tục trong {dur}s (khung hình {s_frame}-{e_frame}).",
+                description=f"CẢNH BÁO AI: Cá thể ID:{t_id} phát hiện nghi ngờ BỆNH LẬT NGỬA liên tục trong {dur}s (khung hình {s_frame}-{e_frame}).",
             ))
 
         # If no alerts found, create representative normal track
@@ -323,7 +323,7 @@ class RealAIService(AIServiceBase):
                 end_time=duration_sec,
                 label="Khỏe mạnh",
                 confidence=0.95,
-                behavior_detail="Di chuyển bình thường, không phát hiện lật ngửa",
+                behavior_detail="Di chuyển bình thường, không phát hiện Bệnh Lật ngửa",
             ))
 
         sick_count = len(alerted_track_ids)
@@ -344,7 +344,7 @@ class RealAIService(AIServiceBase):
                 "tracking": "BoT-SORT",
                 "behavior_classifier": "Temporal Rule + Immobility Check",
             },
-            message=f"Hoàn tất phân tích video bằng model Lật ngửa: phát hiện {sick_count} cá thể nghi ngờ lật ngửa."
+            message=f"Hoàn tất phân tích video bằng model Bệnh Lật ngửa: phát hiện {sick_count} cá thể nghi ngờ lật ngửa."
         )
 
     def _analyze_image(self, image_path: str) -> AIAnalysisResult:

@@ -7,7 +7,7 @@ import datetime as dt
 
 from app.database.connection import session_scope
 from app.database.models import (
-    AIAnalysisSession, AIDetectionResult, AIAlert, Notification, Flock, VeterinaryRecord
+    AIAnalysisSession, AIDetectionResult, AIAlert, Notification, Flock, VeterinaryRecord, Disease
 )
 from app.repositories.ai_repository import AISessionRepository, AIDetectionRepository, AIAlertRepository
 from app.ai.ai_service import get_ai_service, AIAnalysisResult
@@ -121,17 +121,22 @@ class AIAnalysisService:
                     session.add(target_flock)
                     session.flush()
 
+                # Map to Disease "Lật ngửa" if exists in database
+                dis_lat_ngua = session.query(Disease).filter(Disease.name.ilike("%Lật ngửa%")).first()
+                dis_id = dis_lat_ngua.id if dis_lat_ngua else None
+
                 vet_rec = VeterinaryRecord(
                     flock_id=target_flock.id,
+                    disease_id=dis_id,
                     diagnosis_date=dt.date.today(),
-                    diagnosis="Nghi dịch bệnh / Té ngã (Phát hiện từ AI)",
+                    diagnosis="Bệnh Lật ngửa (Phát hiện từ AI)",
                     animal_reference="1 cá thể (AI)",
                     symptoms=f"Cảnh báo AI từ video {metadata.file_name}: {summary_str}",
-                    treatment="Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm vắc xin bổ sung.",
+                    treatment="Cách ly ngay cá thể nghi mắc Bệnh Lật ngửa, kiểm tra phản xạ thần kinh, hỗ trợ lật lại và theo dõi biểu hiện dịch bệnh.",
                     veterinarian=actor or "Hệ thống AI tự động",
                     status=VetRecordStatus.THEO_DOI,
                     source="AI_ANALYSIS",
-                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id}",
+                    notes=f"Tự động khởi tạo từ phiên phân tích AI #{ai_session.id} (Model chuyên biệt Bệnh Lật ngửa)",
                 )
                 session.add(vet_rec)
             else:

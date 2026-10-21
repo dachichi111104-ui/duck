@@ -98,7 +98,7 @@ class AIMonitoringView(QWidget):
         webcam_btn.setIcon(get_icon("fa5s.camera", color="#FFFFFF"))
         webcam_btn.setFixedHeight(34)
         webcam_btn.setStyleSheet("font-size: 11px; font-weight: 700; padding: 4px 10px;")
-        webcam_btn.setToolTip("Mở webcam máy tính, quay 1 đoạn clip và tự động phân tích AI")
+        webcam_btn.setToolTip("Mở webcam máy tính, quay một đoạn clip và tự động phân tích phát hiện Bệnh Lật Ngửa")
         webcam_btn.clicked.connect(self._open_webcam_recorder)
         cc_layout.addWidget(webcam_btn, 1)
 
@@ -107,18 +107,9 @@ class AIMonitoringView(QWidget):
         upload_btn.setObjectName("SecondaryButton")
         upload_btn.setFixedHeight(34)
         upload_btn.setStyleSheet("font-size: 11px; font-weight: 700; padding: 4px 10px;")
-        upload_btn.setToolTip("Chọn một tệp video sẵn có (mp4/avi) trong máy tính")
+        upload_btn.setToolTip("Chọn một tệp video (MP4/AVI/MOV) để theo dõi hành vi và phát hiện Bệnh Lật Ngửa")
         upload_btn.clicked.connect(self._choose_video)
         cc_layout.addWidget(upload_btn, 1)
-
-        upload_img_btn = QPushButton(" Tải hình ảnh từ máy tính")
-        upload_img_btn.setIcon(get_icon("fa5s.file-image", color="#1565C0"))
-        upload_img_btn.setObjectName("SecondaryButton")
-        upload_img_btn.setFixedHeight(34)
-        upload_img_btn.setStyleSheet("font-size: 11px; font-weight: 700; padding: 4px 10px;")
-        upload_img_btn.setToolTip("Chọn một tệp ảnh (jpg/png) để nhận diện và chẩn đoán lật ngửa")
-        upload_img_btn.clicked.connect(self._choose_image)
-        cc_layout.addWidget(upload_img_btn, 1)
 
         left_col.addWidget(choice_card)
 
@@ -219,16 +210,17 @@ class AIMonitoringView(QWidget):
             sc_hdr.addWidget(StatusBadge("MODEL THẬT ACTIVE", tone="success"))
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
-                "<b>Mô hình tích hợp:</b> YOLOv8 Hành Vi & Lật Ngửa (Run A - 20261021)<br>"
-                "<b>Nhiệm vụ:</b> Detect Thân/Chân + Tracking BoT-SORT + Cảnh báo Hành vi / Lật Ngửa<br>"
-                "<b>Trạng thái:</b> Đã tích hợp Model mới nhất thành công"
+                "<b>Mô hình tích hợp:</b> YOLOv8n (Run A - 20261021)<br>"
+                "<b>Bệnh phát hiện:</b> Bệnh Lật ngửa (Hội chứng Duck Inverted)<br>"
+                "<b>Quy tắc chẩn đoán:</b> Tương quan chân/thân + Cửa sổ thời gian liên tục 40s<br>"
+                "<b>Đầu vào xử lý:</b> Video luồng / Webcam (yêu cầu phân tích chuỗi thời gian)"
             )
         else:
             sc_hdr.addWidget(StatusBadge("MODEL MÔ PHỎNG", tone="warning"))
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
                 "<b>Mô hình tích hợp:</b> Placeholder AIService<br>"
-                "<b>Nhiệm vụ:</b> Mô phỏng kết quả phân tích AI<br>"
+                "<b>Bệnh phát hiện:</b> Mô phỏng Bệnh Lật ngửa<br>"
                 "<b>Trạng thái:</b> Chưa phát hiện duckai_package/best.pt"
             )
         info_lbl.setWordWrap(True)
@@ -258,13 +250,13 @@ class AIMonitoringView(QWidget):
         res_layout.setContentsMargins(8, 6, 8, 6)
         res_layout.setSpacing(4)
 
-        res_layout.addWidget(QLabel("<b>Kết quả chẩn đoán hành vi (Detection Output)</b>"))
+        res_layout.addWidget(QLabel("<b>Kết quả chẩn đoán Bệnh Lật ngửa (Detection Output)</b>"))
 
         self.result_label = QLabel(
-            "Vui lòng tải video hoặc quay từ camera để xem kết quả phân tích AI chi tiết.\n\n"
-            "• Tổng số cá thể nhận diện: --\n"
+            "Vui lòng tải video hoặc quay từ camera để xem kết quả phân tích Bệnh Lật ngửa chi tiết.\n\n"
+            "• Tổng số cá thể bám vết: --\n"
             "• Cá thể khỏe mạnh: --\n"
-            "• Cá thể nghi vấn mắc bệnh: --\n"
+            "• Cá thể nghi mắc Bệnh Lật ngửa: --\n"
             "• Độ tin cậy trung bình: --"
         )
         self.result_label.setWordWrap(True)
@@ -322,24 +314,18 @@ class AIMonitoringView(QWidget):
 
     def _choose_video(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Chọn Video phân tích AI", "", "Video Files (*.mp4 *.avi *.mov *.mkv *.wmv)"
+            self, "Chọn Video phân tích AI Bệnh Lật Ngửa", "", "Video Files (*.mp4 *.avi *.mov *.mkv *.wmv)"
         )
         if not path:
             return
         if not is_supported_video(path):
-            QMessageBox.warning(self, "Định dạng không hỗ trợ", "Vui lòng chọn tệp video hợp lệ.")
-            return
-        self._on_video_selected(path)
-
-    def _choose_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Chọn Hình ảnh phân tích AI", "", "Image Files (*.jpg *.jpeg *.png *.bmp *.webp)"
-        )
-        if not path:
-            return
-        from app.ai.video_processor import is_supported_image
-        if not is_supported_image(path):
-            QMessageBox.warning(self, "Định dạng không hỗ trợ", "Vui lòng chọn tệp hình ảnh hợp lệ.")
+            QMessageBox.warning(
+                self,
+                "Định dạng không hỗ trợ",
+                "Vui lòng chọn tệp video hợp lệ (MP4, AVI, MOV, MKV, WMV).\n\n"
+                "Hệ thống yêu cầu dữ liệu chuỗi video để bám vết đối tượng (BoT-SORT) "
+                "và theo dõi quy tắc thời gian (40s) phát hiện Bệnh Lật Ngửa, không hỗ trợ hình ảnh tĩnh."
+            )
             return
         self._on_video_selected(path)
 
@@ -357,23 +343,15 @@ class AIMonitoringView(QWidget):
             self.meta_labels["Tốc độ FPS"].setText(str(metadata.fps) if metadata.fps is not None else "--")
             self.meta_labels["Dung lượng tệp"].setText(f"{metadata.file_size_mb} MB")
 
-            from app.ai.video_processor import is_supported_image
-            if is_supported_image(path):
-                pixmap = QPixmap(path)
+            thumb_path = str(VIDEOS_DIR / f"_thumb_{Path(path).stem}.jpg")
+            if generate_thumbnail(path, thumb_path):
+                pixmap = QPixmap(thumb_path)
                 if not pixmap.isNull():
                     self.preview_label.setPixmap(
-                        pixmap.scaled(self.preview_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                        pixmap.scaledToHeight(180, Qt.TransformationMode.SmoothTransformation)
                     )
             else:
-                thumb_path = str(VIDEOS_DIR / f"_thumb_{Path(path).stem}.jpg")
-                if generate_thumbnail(path, thumb_path):
-                    pixmap = QPixmap(thumb_path)
-                    if not pixmap.isNull():
-                        self.preview_label.setPixmap(
-                            pixmap.scaledToHeight(180, Qt.TransformationMode.SmoothTransformation)
-                        )
-                else:
-                    self.preview_label.setText(f"[ ĐÃ TẢI VIDEO ]\n\n{Path(path).name}")
+                self.preview_label.setText(f"[ ĐÃ TẢI VIDEO ]\n\n{Path(path).name}")
 
     def _run_analysis(self) -> None:
         if not self._selected_video_path:
@@ -383,7 +361,7 @@ class AIMonitoringView(QWidget):
         self.analyze_btn.setText("Đang phân tích AI...")
         self.result_label.setText(
             "<b>ĐANG THỰC THI PHÂN TÍCH AI...</b><br>"
-            "Mô hình YOLOv8 Lật Ngửa đang nhận diện khung hình & chẩn đoán hành vi.<br>"
+            "Mô hình YOLOv8 đang nhận diện thân/chân, bám vết BoT-SORT & chẩn đoán Bệnh Lật Ngửa theo thời gian.<br>"
             "<i>Vui lòng chờ trong giây lát...</i>"
         )
         QTimer.singleShot(100, self._execute_analysis)
@@ -405,47 +383,37 @@ class AIMonitoringView(QWidget):
                 QMessageBox.critical(self, "Lỗi phân tích", f"Không thể lưu phiên phân tích: {exc}")
                 return
 
-            from app.ai.video_processor import is_supported_image
-            if is_supported_image(self._selected_video_path):
-                self._playback_timer.stop()
-                from pathlib import Path
-                from app.config.settings import VIDEOS_DIR
-                ann_path = str(VIDEOS_DIR / f"_annotated_{Path(self._selected_video_path).name}")
-                display_path = ann_path if Path(ann_path).exists() else self._selected_video_path
-
-                pixmap = QPixmap(display_path)
-                if not pixmap.isNull():
-                    self.preview_label.setPixmap(
-                        pixmap.scaled(self.preview_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    )
-            else:
-                # Start live visual playback with bounding box overlay for video files
-                self._start_visual_overlay_playback()
+            # Start live visual playback with bounding box overlay for video
+            self._start_visual_overlay_playback()
 
             alerts = self._service.get_session_alerts(session.id)
             alert_count = len(alerts)
             if alert_count > 0:
-                sick_str = f"<font color='#D32F2F'><b>{alert_count} lượt nghi ngờ LẬT NGỬA (Đỏ)</b></font>"
+                sick_str = f"<font color='#D32F2F'><b>{alert_count} đợt phát hiện BỆNH LẬT NGỬA (Cảnh báo Đỏ)</b></font>"
             else:
-                sick_str = "<font color='#2E7D32'><b>Không phát hiện lật ngửa (Khỏe mạnh)</b></font>"
+                sick_str = "<font color='#2E7D32'><b>Không phát hiện Bệnh Lật ngửa (Đàn vịt khỏe mạnh)</b></font>"
 
             self.result_label.setText(
-                f"<b>ĐÃ HOÀN THÀNH PHÂN TÍCH AI (MODEL LẬT NGỬA)</b><br>"
+                f"<b>ĐÃ HOÀN THÀNH PHÂN TÍCH BỆNH LẬT NGỬA</b><br>"
                 f"<b>Phiên làm việc:</b> #{session.id} ({session.model_version})<br>"
-                f"<b>Kết quả phát hiện:</b> {sick_str}<br>"
-                f"<b>Thông báo:</b> {session.notes or 'Hoàn thành'}<br><br>"
-                f"<i>Hệ thống đã tự động ghi nhận phiên phân tích và tạo Cảnh báo Thú y nếu có cá thể bất thường.</i>"
+                f"<b>Kết quả chẩn đoán:</b> {sick_str}<br>"
+                f"<b>Tổng số lượt cảnh báo nguy hiểm:</b> <b>{alert_count}</b><br>"
+                f"<b>Tốc độ FPS xử lý:</b> <b>{metadata.fps or 25}</b><br><br>"
+                f"<i>Hệ thống đã tự động ghi nhận phiên phân tích và tạo Bệnh án Thú y nháp nếu có cá thể bị lật ngửa.</i>"
             )
-            self.vet_suggest_btn.show()
-            self.track_detail_btn.show()
             self._last_session_id = session.id
+            if alert_count > 0:
+                self.vet_suggest_btn.show()
+            else:
+                self.vet_suggest_btn.hide()
+            self.track_detail_btn.show()
 
             self._refresh_history()
             QMessageBox.information(
                 self,
-                "Hoàn thành phân tích AI",
-                "Đã thực hiện xong phân tích AI!\n"
-                "Tọa độ Bounding box đã được vẽ trực quan lên video/hình ảnh.\n"
+                "Phân tích AI hoàn thành",
+                "Đã hoàn thành phân tích video phát hiện Bệnh Lật Ngửa!\n\n"
+                "Tọa độ Bounding box đã được vẽ trực quan lên video.\n"
                 "Hệ thống đã tự động lưu Cảnh báo đỏ, khởi tạo Bệnh án Thú y và xuất báo cáo Chi tiết cá thể."
             )
         finally:
@@ -524,10 +492,18 @@ class AIMonitoringView(QWidget):
         from app.ui.veterinary.veterinary_record_dialog import VeterinaryRecordDialog
         dlg = VeterinaryRecordDialog(self.current_user, parent=self)
         if self._selected_video_path:
-            dlg.symptoms_input.setPlainText(f"Phát hiện cảnh báo AI từ tệp {Path(self._selected_video_path).name}: Nghi ngờ vịt Lật ngửa (Té ngã / Nằm ngửa).")
-            dlg.diagnosis_input.setPlainText("Nghi dịch bệnh / Té ngã (Lật Ngửa)")
-            dlg.treatment_input.setPlainText("Cách ly cá thể nghi bệnh, theo dõi thân nhiệt và tiêm bổ sung vắc xin.")
+            dlg.symptoms_input.setPlainText(
+                f"Phát hiện cảnh báo AI từ video {Path(self._selected_video_path).name}: "
+                f"Cá thể có triệu chứng té ngã, nằm lật ngửa bụng, chân co giật hoặc bất động kéo dài (đạt ngưỡng cảnh báo 40s)."
+            )
+            dlg.diagnosis_input.setPlainText("Bệnh Lật ngửa (Hội chứng Duck Inverted - Phát hiện từ AI)")
+            dlg.treatment_input.setPlainText("Cách ly ngay cá thể nghi mắc Bệnh Lật ngửa, kiểm tra phản xạ thần kinh, hỗ trợ lật lại, tiêm phòng/kháng thể theo chỉ định.")
             dlg.veterinarian_input.setText(self.current_user.full_name or self.current_user.username)
+            # Auto-select disease 'Lật ngửa' in combo box if present
+            for i in range(dlg.disease_combo.count()):
+                if "lật ngửa" in dlg.disease_combo.itemText(i).lower():
+                    dlg.disease_combo.setCurrentIndex(i)
+                    break
         if dlg.exec():
             QMessageBox.information(
                 self,
