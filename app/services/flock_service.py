@@ -33,7 +33,7 @@ class FlockService:
         with session_scope() as session:
             flock = self._repo.get_with_details(session, flock_id)
             if flock:
-                session.expunge(flock)
+                session.expunge_all()
             return flock
 
     def create_flock(self, actor: str, flock_code: str, name: str, barn_id: int | None,

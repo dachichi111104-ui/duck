@@ -30,6 +30,7 @@ class VeterinaryRecordRepository(BaseRepository[VeterinaryRecord]):
     def get_for_flock(self, session: Session, flock_id: int) -> list[VeterinaryRecord]:
         stmt = (
             select(VeterinaryRecord)
+            .options(joinedload(VeterinaryRecord.disease))
             .where(VeterinaryRecord.flock_id == flock_id)
             .order_by(VeterinaryRecord.diagnosis_date.desc())
         )

@@ -175,8 +175,14 @@ class FlockDetailView(QWidget):
         records = sorted(self.flock.veterinary_records, key=lambda r: r.diagnosis_date, reverse=True)
         self.vet_table.setRowCount(len(records))
         for row, r in enumerate(records):
+            disease_name = "-"
+            try:
+                if r.disease:
+                    disease_name = r.disease.name
+            except Exception:
+                disease_name = "-"
             set_row(self.vet_table, row, [
-                r.diagnosis_date.isoformat(), r.disease.name if r.disease else "-",
+                r.diagnosis_date.isoformat(), disease_name,
                 r.symptoms or "-", VetRecordStatus.LABELS_VI.get(r.status, r.status), r.source,
             ])
 

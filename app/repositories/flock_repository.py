@@ -3,9 +3,9 @@ from __future__ import annotations
 import datetime as dt
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.database.models import Flock, FlockEvent, ProductionRecord
+from app.database.models import Flock, FlockEvent, ProductionRecord, VeterinaryRecord
 from app.repositories.base_repository import BaseRepository
 
 
@@ -24,10 +24,10 @@ class FlockRepository(BaseRepository[Flock]):
             select(Flock)
             .options(
                 joinedload(Flock.barn),
-                joinedload(Flock.events),
-                joinedload(Flock.production_records),
-                joinedload(Flock.veterinary_records),
-                joinedload(Flock.vaccinations),
+                selectinload(Flock.events),
+                selectinload(Flock.production_records),
+                selectinload(Flock.veterinary_records).joinedload(VeterinaryRecord.disease),
+                selectinload(Flock.vaccinations),
             )
             .where(Flock.id == flock_id)
         )
