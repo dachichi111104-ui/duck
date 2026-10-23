@@ -14,6 +14,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget,
     QFileDialog, QFrame, QMessageBox, QGridLayout, QComboBox, QScrollArea,
+    QSizePolicy,
 )
 import cv2
 import numpy as np
@@ -75,7 +76,16 @@ class AIMonitoringView(QWidget):
         self._build_multi_barn_tab()
         self._build_history_tab()
 
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+
         self.refresh()
+
+    def _on_tab_changed(self, index: int) -> None:
+        if hasattr(self, "multi_barn_widget"):
+            if index == 1:
+                self.multi_barn_widget._start_simulation()
+            else:
+                self.multi_barn_widget._pause_simulation()
 
     # --- TAB 1: Single Video / Webcam Analysis Tab -----------------------
     def _build_analysis_tab(self) -> None:
@@ -290,6 +300,7 @@ class AIMonitoringView(QWidget):
         mb_layout = QVBoxLayout(self.multi_barn_tab)
         mb_layout.setContentsMargins(0, 0, 0, 0)
         self.multi_barn_widget = MultiBarnSimulationWidget(self.current_user)
+        self.multi_barn_widget._pause_simulation()
         mb_layout.addWidget(self.multi_barn_widget)
 
     # --- TAB 3: History Tab ----------------------------------------------

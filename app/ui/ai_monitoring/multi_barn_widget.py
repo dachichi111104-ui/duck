@@ -21,7 +21,7 @@ from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
-    QPushButton, QMessageBox,
+    QPushButton, QMessageBox, QSizePolicy,
 )
 import cv2
 import numpy as np
@@ -44,6 +44,7 @@ class BarnSimTile(QFrame):
         self.video_path = video_path
 
         self.setObjectName("Card")
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(4)
@@ -60,10 +61,10 @@ class BarnSimTile(QFrame):
         hdr.addWidget(self.badge)
         layout.addLayout(hdr)
 
-        # Video Frame Container (Dark #101512)
+        # Video Frame Container (Dark #101512) - Locked fixed height to prevent blowout
         self.video_frame = QFrame()
         self.video_frame.setObjectName("VideoFrame")
-        self.video_frame.setMinimumHeight(135)
+        self.video_frame.setFixedHeight(180)
 
         vf_layout = QVBoxLayout(self.video_frame)
         vf_layout.setContentsMargins(0, 0, 0, 0)
@@ -71,8 +72,10 @@ class BarnSimTile(QFrame):
         self.video_label = QLabel("Đang mở luồng mô phỏng...")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setStyleSheet("color: #68736B; font-size: 10px; background: transparent;")
+        self.video_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self.video_label.setScaledContents(False)
         vf_layout.addWidget(self.video_label)
-        layout.addWidget(self.video_frame, 1)
+        layout.addWidget(self.video_frame)
 
         # Telemetry Footer
         ftr = QHBoxLayout()
@@ -86,8 +89,11 @@ class BarnSimTile(QFrame):
         layout.addLayout(ftr)
 
     def update_frame_pixmap(self, pixmap: QPixmap, status_str: str = "Bình thường", tone: str = "success") -> None:
+        target_size = self.video_frame.contentsRect().size()
+        if target_size.width() <= 10 or target_size.height() <= 10:
+            target_size = QSize(280, 180)
         self.video_label.setPixmap(pixmap.scaled(
-            self.video_label.size(),
+            target_size,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
         ))
@@ -185,7 +191,8 @@ class MultiBarnSimulationWidget(QWidget):
         grid.addWidget(tile3, 0, 2)
 
         self._tiles = [tile1, tile2, tile3]
-        layout.addLayout(grid, 1)
+        layout.addLayout(grid)
+        layout.addStretch(1)
 
         # Timer for 25 FPS frame rendering loop
         self._timer = QTimer(self)

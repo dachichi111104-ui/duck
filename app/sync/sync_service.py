@@ -474,23 +474,53 @@ class SyncService:
     _instance: SyncService | None = None
 
     def __init__(self, parent=None):
-        self.worker = SyncWorker(parent=parent)
+        # Background worker thread must run unparented to avoid being destroyed with a window
+        self.worker = SyncWorker(parent=None)
+
+    def _is_worker_alive(self) -> bool:
+        if not hasattr(self, "worker") or self.worker is None:
+            return False
+        try:
+            self.worker.isRunning()
+            return True
+        except RuntimeError:
+            return False
 
     @classmethod
     def get_instance(cls, parent=None) -> SyncService:
-        if cls._instance is None:
-            cls._instance = SyncService(parent=parent)
+        if cls._instance is None or not cls._instance._is_worker_alive():
+            cls._instance = SyncService(parent=None)
         return cls._instance
 
+    @classmethod
+    def reset_instance(cls) -> None:
+        if cls._instance is not None:
+            try:
+                cls._instance.stop()
+            except Exception:
+                pass
+            cls._instance = None
+
     def start(self):
-        if not self.worker.isRunning():
-            self.worker.start()
+        try:
+            if not self._is_worker_alive():
+                self.worker = SyncWorker(parent=None)
+            if not self.worker.isRunning():
+                self.worker.start()
+        except Exception as e:
+            logger.warning(f"Error starting sync worker: {e}")
 
     def stop(self):
-        if self.worker.isRunning():
-            self.worker.stop()
-            self.worker.wait(3000)
+        try:
+            if self._is_worker_alive() and self.worker.isRunning():
+                self.worker.stop()
+                self.worker.wait(3000)
+        except Exception as e:
+            logger.warning(f"Error stopping sync worker: {e}")
 
     def trigger_sync_now(self):
-        if self.worker.isRunning():
-            self.worker._backoff_delay = 1
+        try:
+            if self._is_worker_alive() and self.worker.isRunning():
+                self.worker._backoff_delay = 1
+        except Exception:
+            pass

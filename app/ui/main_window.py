@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
         self._select_menu(MenuKeys.DASHBOARD)
 
         # Start Background Offline-First Sync Service
-        self.sync_service = SyncService.get_instance(parent=self)
+        self.sync_service = SyncService.get_instance(parent=None)
         self.sync_service.worker.sync_status_changed.connect(self.sync_widget.update_status)
         self.sync_service.worker.conflict_occurred.connect(self._on_sync_conflict)
         self.sync_service.start()
@@ -468,11 +468,19 @@ class MainWindow(QMainWindow):
             return
 
         if hasattr(self, "sync_service"):
-            self.sync_service.stop()
+            try:
+                self.sync_service.stop()
+            except Exception:
+                pass
+            from app.sync.sync_service import SyncService
+            SyncService.reset_instance()
         self._auth_service.logout(self.current_user)
         self._on_logout()
 
     def closeEvent(self, event) -> None:
         if hasattr(self, "sync_service"):
-            self.sync_service.stop()
+            try:
+                self.sync_service.stop()
+            except Exception:
+                pass
         super().closeEvent(event)
