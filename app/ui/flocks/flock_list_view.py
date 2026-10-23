@@ -86,6 +86,12 @@ class FlockListView(QWidget):
         view_btn.clicked.connect(self._view_selected_detail)
         actions.addWidget(view_btn)
 
+        event_btn = QPushButton("Ghi nhận biến động")
+        event_btn.setIcon(get_icon("fa5s.clipboard-list", color="#2E7D32"))
+        event_btn.setObjectName("SecondaryButton")
+        event_btn.clicked.connect(self._record_event_selected)
+        actions.addWidget(event_btn)
+
         edit_btn = QPushButton("Sửa")
         edit_btn.setObjectName("SecondaryButton")
         edit_btn.clicked.connect(self._edit_selected)
@@ -104,12 +110,15 @@ class FlockListView(QWidget):
         self.empty_state.hide()
 
         can_manage = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER)
+        can_record = self.current_user.role_name in (Roles.ADMIN, Roles.FARM_MANAGER, Roles.STAFF)
         if not can_manage:
             add_btn.hide()
             edit_btn.hide()
             delete_btn.hide()
             if self.empty_state.action_btn:
                 self.empty_state.action_btn.hide()
+        if not can_record:
+            event_btn.hide()
 
     def _update_kpi_cards(self):
         while self.kpi_layout.count():
@@ -226,6 +235,17 @@ class FlockListView(QWidget):
                 self.refresh()
             except ValidationError as exc:
                 QMessageBox.warning(self, "Không thể xóa", str(exc))
+
+    def _record_event_selected(self) -> None:
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self._displayed_flocks):
+            QMessageBox.information(self, "Chọn đàn", "Vui lòng chọn một đàn vịt trong danh sách để ghi nhận biến động.")
+            return
+        flock = self._displayed_flocks[row]
+        from app.ui.flocks.flock_event_dialog import FlockEventDialog
+        dlg = FlockEventDialog(self.current_user, flock.id, parent=self)
+        if dlg.exec():
+            self.refresh()
 
     def _view_selected_detail(self) -> None:
         row = self.table.currentRow()

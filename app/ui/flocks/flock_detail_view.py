@@ -112,8 +112,9 @@ class FlockDetailView(QWidget):
         toolbar = QHBoxLayout()
         toolbar.addStretch()
         add_btn = QPushButton("+ Ghi nhận biến động")
+        add_btn.setIcon(get_icon("fa5s.plus", color="#FFFFFF"))
         add_btn.clicked.connect(self._add_event)
-        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER, Roles.STAFF):
             add_btn.hide()
         toolbar.addWidget(add_btn)
         layout.addLayout(toolbar)
@@ -131,8 +132,8 @@ class FlockDetailView(QWidget):
             ])
 
     def _add_event(self) -> None:
-        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER):
-            QMessageBox.warning(self, "Quyền truy cập", "Chỉ Quản trị viên và Quản lý trang trại mới có quyền ghi nhận biến động đàn.")
+        if self.current_user.role_name not in (Roles.ADMIN, Roles.FARM_MANAGER, Roles.STAFF):
+            QMessageBox.warning(self, "Quyền truy cập", "Bạn không có quyền ghi nhận biến động đàn.")
             return
         dlg = FlockEventDialog(self.current_user, self.flock_id, parent=self)
         if dlg.exec():

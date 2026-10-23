@@ -51,14 +51,23 @@ class AuthService:
             logger.info("API connection unavailable during login for username=%s. Falling back to local offline auth.", username)
         except Exception as e:
             logger.warning("API Login error with primary password (%s). Trying fallback web credentials...", e)
-            # Try alternate seed password for admin on web backend if admin123 was used
-            if username.lower() == "admin" and password == "admin123":
+            # Map of known local seed passwords for each demo role
+            known_seed_passwords = {
+                "admin": "admin123",
+                "manager": "manager123",
+                "vet": "vet123",
+                "staff": "staff123",
+                "bs_lehoang": "vet123",
+                "bs_a": "vet123",
+                "bs_b": "vet123",
+            }
+            if password == known_seed_passwords.get(username.lower()):
                 try:
                     api_data = api_client.login(username, "password123")
                     web_password = "password123"
-                    logger.info("API Login succeeded with server admin credentials.")
+                    logger.info("API Login succeeded with server credentials for username=%s.", username)
                 except Exception as ex2:
-                    logger.warning("API Login fallback failed: %s", ex2)
+                    logger.warning("API Login fallback failed for username=%s: %s", username, ex2)
 
         # 2. Local SQLite Sync/Lookup
         with session_scope() as session:
@@ -104,7 +113,7 @@ class AuthService:
             # Offline Fallback Verification
             is_valid_local = (user is not None) and (
                 verify_password(password, user.password_hash) or
-                (username.lower() == "admin" and password in ("admin123", "password123"))
+                (password in ("password123", known_seed_passwords.get(username.lower())))
             )
             if not is_valid_local:
                 logger.warning("Failed login attempt for username=%s", username)

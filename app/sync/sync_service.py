@@ -119,8 +119,8 @@ class SyncWorker(QThread):
                     logger.info("Auto-authenticated sync session for user=%s", u)
                     return True
                 except Exception as ex:
-                    # If primary saved credentials failed, try default web server fallback for admin
-                    if u.lower() == "admin" and p != "password123":
+                    # If primary saved credentials failed, try default web server fallback password123
+                    if p != "password123":
                         try:
                             self.api_client.login(u, "password123")
                             self.api_client.token_manager.save_credentials(u, "password123")
