@@ -319,7 +319,7 @@ class RealAIService(AIServiceBase):
                 alert_type=AlertType.AI_ABNORMAL_BEHAVIOR,
                 severity=AlertSeverity.RED,
                 timestamp=s_sec,
-                description=f"CẢNH BÁO AI: Cá thể #{ind_idx} phát hiện HÀNH VI BẤT THƯỜNG (lật ngửa / té ngã / bất động) liên tục trong {dur}s từ {s_sec}s đến {e_sec}s{sub_info}.",
+                description=f"CẢNH BÁO AI: Cá thể #{ind_idx} phát hiện HÀNH VI BẤT THƯỜNG (ủ rũ / tách đàn / bất động / té ngã) liên tục trong {dur}s từ {s_sec}s đến {e_sec}s{sub_info}.",
             ))
 
         # If no alerts found, create representative normal track

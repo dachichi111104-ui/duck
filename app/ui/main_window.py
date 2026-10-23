@@ -46,7 +46,7 @@ PAGE_HEADERS = {
     MenuKeys.DASHBOARD: ("Bảng điều khiển", "Theo dõi tổng quan tình hình chăn nuôi, sức khỏe đàn vịt và hệ thống."),
     MenuKeys.MONITORING: ("Giám sát trực tiếp", "Theo dõi các góc camera tại các chuồng vịt theo thời gian thực."),
     MenuKeys.CAMERAS: ("Quản lý Camera", "Cấu hình danh sách camera giám sát và kết nối luồng RTSP."),
-    MenuKeys.AI_DETECTION: ("Nhận diện & Giám sát Hành vi Bất thường (AI)", "Phân tích video/camera luồng chuồng nuôi, bám vết BoT-SORT và phát hiện tự động các hành vi bất thường (té ngã, lật ngửa, bất động)."),
+    MenuKeys.AI_DETECTION: ("Nhận diện & Giám sát Hành vi Bất thường (AI)", "Phân tích video/camera chuồng nuôi, bám vết BoT-SORT và phát hiện tự động hành vi bất thường: ủ rũ, tách đàn, giảm vận động, té ngã/lật ngửa."),
     MenuKeys.FLOCKS: ("Quản lý Đàn vịt", "Theo dõi số lượng cá thể, biến động đàn và tỷ lệ sống."),
     MenuKeys.BARNS: ("Quản lý Chuồng nuôi", "Quản lý các khu vực chuồng nuôi, vị trí và sức chứa."),
     MenuKeys.PRODUCTION: ("Theo dõi Sản lượng Trứng", "Ghi nhận thu hoạch trứng hàng ngày, tính bình quân và biểu đồ xu hướng."),

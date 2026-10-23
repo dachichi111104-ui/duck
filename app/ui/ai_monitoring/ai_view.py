@@ -221,9 +221,9 @@ class AIMonitoringView(QWidget):
             sc_layout.addLayout(sc_hdr)
             info_lbl = QLabel(
                 "<b>Mô hình tích hợp:</b> YOLOv8n + BoT-SORT Tracker (Run A - 20261021)<br>"
-                "<b>Mục tiêu:</b> Nhận diện & Giám sát Hành vi Bất thường (té ngã, lật ngửa, bất động)<br>"
-                "<b>Quy tắc phân tích:</b> Tương quan giải phẫu chân/thân + Cửa sổ thời gian liên tục 40s<br>"
-                "<b>Tối ưu xử lý:</b> Tự động lấy mẫu 5 FPS (tăng tốc độ xử lý video lên x5 - x10 lần)"
+                "<b>Mục tiêu:</b> Nhận diện Hành vi Bất thường (ủ rũ, tách đàn, giảm vận động, té ngã, lật ngửa)<br>"
+                "<b>Quy tắc phân tích:</b> Tọa độ không gian, khoảng cách bầy đàn + Cửa sổ thời gian liên tục<br>"
+                "<b>Tối ưu xử lý:</b> Lấy mẫu 5 FPS & Gom cụm cá thể (Spatial-Temporal Clustering)"
             )
         else:
             sc_hdr.addWidget(StatusBadge("MODEL MÔ PHỎNG", tone="warning"))
