@@ -237,13 +237,12 @@ class FlockListView(QWidget):
                 QMessageBox.warning(self, "Không thể xóa", str(exc))
 
     def _record_event_selected(self) -> None:
-        row = self.table.currentRow()
-        if row < 0 or row >= len(self._displayed_flocks):
+        flock_id = self._selected_flock_id()
+        if flock_id is None:
             QMessageBox.information(self, "Chọn đàn", "Vui lòng chọn một đàn vịt trong danh sách để ghi nhận biến động.")
             return
-        flock = self._displayed_flocks[row]
         from app.ui.flocks.flock_event_dialog import FlockEventDialog
-        dlg = FlockEventDialog(self.current_user, flock.id, parent=self)
+        dlg = FlockEventDialog(self.current_user, flock_id, parent=self)
         if dlg.exec():
             self.refresh()
 

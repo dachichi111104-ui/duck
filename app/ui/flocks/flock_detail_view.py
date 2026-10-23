@@ -8,6 +8,7 @@ from app.services.flock_service import FlockService
 from app.services.veterinary_service import VeterinaryService
 from app.ui.components.table_helpers import build_table, set_row
 from app.ui.components.empty_state import EmptyState
+from app.ui.components.icons import get_icon
 from app.ui.flocks.flock_event_dialog import FlockEventDialog
 from app.ui.flocks.production_dialog import ProductionRecordDialog
 from app.config.constants import FlockEventType, VetRecordStatus, Roles, FlockStatus
