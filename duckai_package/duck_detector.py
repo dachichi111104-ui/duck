@@ -30,12 +30,12 @@ from ultralytics import YOLO
 def analyze_video(
     video_path,
     model_path,
-    conf=0.30,
-    margin=0.3,
-    ratio=0.8,
+    conf=0.25,
+    margin=0.25,
+    ratio=0.75,
     window=30,
     move_thresh=0.35,
-    span_ratio=1.2,
+    span_ratio=1.15,
     tracker="botsort.yaml",
     save_annotated_path=None,
     on_frame=None,
@@ -72,6 +72,7 @@ def analyze_video(
     # Theo dõi trạng thái cảnh báo để gộp thành các "đợt" liên tục
     open_alerts = {}  # track_id -> start_frame
     alert_boxes = defaultdict(list)  # track_id -> [(cx, cy, w, h)]
+    alert_miss_counts = defaultdict(int)  # track_id -> số frame liên tiếp bị che khuất chân
     closed_alerts = []  # danh sách các đợt đã kết thúc
 
     MAX_DX_RATIO, MAX_DY_RATIO = 1.2, 1.0
@@ -135,6 +136,21 @@ def analyze_video(
             than_cx, than_cy, than_h = t["cx"], t["cy"], t["h"]
             my_chans = t["chans"]
 
+            # Chuyển giao bám vết nếu tracker bị nhảy ID tại đúng vị trí con vịt đang lật ngửa
+            if tid not in open_alerts and open_alerts:
+                for old_tid in list(open_alerts.keys()):
+                    old_boxes = alert_boxes.get(old_tid, [])
+                    if old_boxes:
+                        lb = old_boxes[-1]
+                        if np.hypot(than_cx - lb[0], than_cy - lb[1]) < max(than_h, t["w"]) * 0.70:
+                            open_alerts[tid] = open_alerts.pop(old_tid)
+                            alert_boxes[tid] = alert_boxes.pop(old_tid, [])
+                            alert_miss_counts[tid] = 0
+                            alert_miss_counts.pop(old_tid, None)
+                            if old_tid in flip_history and len(flip_history[old_tid]) > 0:
+                                flip_history[tid] = deque(flip_history[old_tid], maxlen=effective_window)
+                            break
+
             flipped_by_yrule = False
             if my_chans:
                 closest_chan = min(my_chans, key=lambda c: abs(((c[1] + c[3]) / 2) - than_cx))
@@ -172,20 +188,28 @@ def analyze_video(
             if is_confirmed_risk:
                 risky_track_ids.add(tid)
                 alert_boxes[tid].append((than_cx, than_cy, t["w"], t["h"]))
+                alert_miss_counts[tid] = 0
                 if tid not in open_alerts:
                     open_alerts[tid] = frame_idx  # bắt đầu 1 đợt cảnh báo mới
             else:
                 if tid in open_alerts:
-                    # đợt cảnh báo vừa kết thúc -> chốt lại
-                    start_f = open_alerts.pop(tid)
-                    boxes_list = alert_boxes.pop(tid, [])
-                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
+                    alert_miss_counts[tid] += 1
+                    # Giữ nguyên cảnh báo thêm tối đa 3 frame (~0.6s) nếu vịt vẫn bất động tại chỗ
+                    if is_still and alert_miss_counts[tid] <= 3:
+                        risky_track_ids.add(tid)
+                        alert_boxes[tid].append((than_cx, than_cy, t["w"], t["h"]))
+                    else:
+                        start_f = open_alerts.pop(tid)
+                        boxes_list = alert_boxes.pop(tid, [])
+                        alert_miss_counts.pop(tid, None)
+                        closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
         # Đóng các đợt cảnh báo của track đã biến mất hoàn toàn khỏi frame (bị mất track hẳn)
         for tid in list(open_alerts.keys()):
             if tid not in active_ids_this_frame:
                 start_f = open_alerts.pop(tid)
                 boxes_list = alert_boxes.pop(tid, [])
+                alert_miss_counts.pop(tid, None)
                 closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
         # Vẽ OSD Banner trên đầu video hiển thị rõ Frame ID và Thống kê thời gian thực

@@ -746,6 +746,15 @@ class AIMonitoringView(QWidget):
             self.analyze_btn.setText("Bắt đầu phân tích AI")
             self.analyze_btn.setEnabled(True)
 
+    def _get_playback_interval(self) -> int:
+        fps = 25.0
+        if self._playback_cap and self._playback_cap.isOpened():
+            cap_fps = self._playback_cap.get(cv2.CAP_PROP_FPS)
+            if cap_fps and cap_fps > 0:
+                fps = float(cap_fps)
+        base_interval_ms = 1000.0 / fps
+        return max(20, int(round(base_interval_ms / max(0.1, self._playback_speed))))
+
     def _start_visual_overlay_playback(self) -> None:
         if self._playback_timer.isActive():
             self._playback_timer.stop()
@@ -770,7 +779,7 @@ class AIMonitoringView(QWidget):
             self._has_real_annotations = False
 
         self._playback_frame_idx = 0
-        interval = max(15, int(round(40.0 / max(0.1, self._playback_speed))))
+        interval = self._get_playback_interval()
         self._playback_timer.start(interval)
 
     def _on_speed_changed(self, index: int) -> None:
@@ -796,7 +805,7 @@ class AIMonitoringView(QWidget):
 
     def _update_playback_interval(self) -> None:
         if self._playback_timer.isActive():
-            interval = max(15, int(round(40.0 / max(0.1, self._playback_speed))))
+            interval = self._get_playback_interval()
             self._playback_timer.setInterval(interval)
 
     def _on_playback_tick(self) -> None:
