@@ -55,6 +55,7 @@ class AIMonitoringView(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
 
         self.content = QWidget()
@@ -136,19 +137,17 @@ class AIMonitoringView(QWidget):
         ctx_layout.setContentsMargins(8, 6, 8, 6)
         ctx_layout.setSpacing(8)
 
-        flock_lbl = QLabel("<b>Đàn vịt:</b>")
+        flock_lbl = QLabel("<b>Đàn:</b>")
         flock_lbl.setStyleSheet("font-size: 11px;")
         ctx_layout.addWidget(flock_lbl)
         self.flock_combo = QComboBox()
-        self.flock_combo.setMinimumWidth(150)
         self.flock_combo.setStyleSheet("font-size: 11px;")
         ctx_layout.addWidget(self.flock_combo, 1)
 
-        barn_lbl = QLabel("<b>Chuồng nuôi:</b>")
+        barn_lbl = QLabel("<b>Chuồng:</b>")
         barn_lbl.setStyleSheet("font-size: 11px;")
         ctx_layout.addWidget(barn_lbl)
         self.barn_combo = QComboBox()
-        self.barn_combo.setMinimumWidth(150)
         self.barn_combo.setStyleSheet("font-size: 11px;")
         ctx_layout.addWidget(self.barn_combo, 1)
 
@@ -157,8 +156,9 @@ class AIMonitoringView(QWidget):
         # Video Preview Frame (Dark #101512 with Visual AI Overlay)
         self.preview_frame = QFrame()
         self.preview_frame.setObjectName("VideoFrame")
-        self.preview_frame.setMinimumHeight(220)
-        self.preview_frame.setMaximumHeight(450)
+        self.preview_frame.setMinimumHeight(180)
+        self.preview_frame.setMaximumHeight(380)
+        self.preview_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         preview_layout = QVBoxLayout(self.preview_frame)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -169,8 +169,7 @@ class AIMonitoringView(QWidget):
         )
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet("color: #68736B; font-size: 11px; font-weight: 500;")
-        self.preview_label.setMinimumHeight(200)
-        self.preview_label.setMaximumHeight(420)
+        self.preview_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         preview_layout.addWidget(self.preview_label)
 
         left_col.addWidget(self.preview_frame, 1)
@@ -179,11 +178,12 @@ class AIMonitoringView(QWidget):
         ctrl_card = QFrame()
         ctrl_card.setObjectName("Card")
         ctrl_layout = QHBoxLayout(ctrl_card)
-        ctrl_layout.setContentsMargins(8, 6, 8, 6)
+        ctrl_layout.setContentsMargins(6, 4, 6, 4)
         ctrl_layout.setSpacing(6)
 
         self.selected_file_label = QLabel("Chưa chọn tệp video nào")
         self.selected_file_label.setStyleSheet("font-size: 10px; color: #68736B; font-weight: 600;")
+        self.selected_file_label.setMaximumWidth(150)
         ctrl_layout.addWidget(self.selected_file_label, 1)
 
         # Video Playback Speed Control
@@ -192,14 +192,15 @@ class AIMonitoringView(QWidget):
         ctrl_layout.addWidget(speed_lbl)
 
         self.speed_combo = QComboBox()
-        self.speed_combo.setFixedHeight(26)
-        self.speed_combo.setStyleSheet("font-size: 10px; padding: 1px 4px;")
-        self.speed_combo.addItem("0.25x (Rất chậm)", 0.25)
-        self.speed_combo.addItem("0.5x (Chậm - Dễ nhìn)", 0.5)
-        self.speed_combo.addItem("0.75x (Hơi chậm)", 0.75)
-        self.speed_combo.addItem("1.0x (Chuẩn)", 1.0)
-        self.speed_combo.addItem("1.5x (Nhanh)", 1.5)
-        self.speed_combo.addItem("2.0x (Tua nhanh)", 2.0)
+        self.speed_combo.setFixedHeight(24)
+        self.speed_combo.setFixedWidth(80)
+        self.speed_combo.setStyleSheet("font-size: 10px; padding: 1px 2px;")
+        self.speed_combo.addItem("0.25x", 0.25)
+        self.speed_combo.addItem("0.5x", 0.5)
+        self.speed_combo.addItem("0.75x", 0.75)
+        self.speed_combo.addItem("1.0x", 1.0)
+        self.speed_combo.addItem("1.5x", 1.5)
+        self.speed_combo.addItem("2.0x", 2.0)
         self.speed_combo.setCurrentIndex(1)  # Default 0.5x
         self.speed_combo.currentIndexChanged.connect(self._on_speed_changed)
         ctrl_layout.addWidget(self.speed_combo)
@@ -207,28 +208,28 @@ class AIMonitoringView(QWidget):
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setRange(25, 200)
         self.speed_slider.setValue(50)  # 50 = 0.5x
-        self.speed_slider.setFixedWidth(70)
+        self.speed_slider.setFixedWidth(55)
         self.speed_slider.setToolTip("Kéo thanh trượt để chỉnh tốc độ phát video (0.25x - 2.0x)")
         self.speed_slider.valueChanged.connect(self._on_slider_speed_changed)
         ctrl_layout.addWidget(self.speed_slider)
 
-        self.analyze_btn = QPushButton("Bắt đầu phân tích AI")
+        self.analyze_btn = QPushButton("Phân tích")
         self.analyze_btn.setIcon(get_icon("fa5s.play", color="#FFFFFF"))
-        self.analyze_btn.setFixedHeight(26)
-        self.analyze_btn.setStyleSheet("font-size: 10px; padding: 2px 8px;")
+        self.analyze_btn.setFixedHeight(24)
+        self.analyze_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
         self.analyze_btn.setEnabled(False)
         self.analyze_btn.clicked.connect(self._run_analysis)
         ctrl_layout.addWidget(self.analyze_btn)
 
         stop_btn = QPushButton("Đặt lại")
         stop_btn.setObjectName("SecondaryButton")
-        stop_btn.setFixedHeight(26)
-        stop_btn.setStyleSheet("font-size: 10px; padding: 2px 8px;")
+        stop_btn.setFixedHeight(24)
+        stop_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
         stop_btn.clicked.connect(self._reset_analysis)
         ctrl_layout.addWidget(stop_btn)
 
         left_col.addWidget(ctrl_card)
-        layout.addLayout(left_col, 2)
+        layout.addLayout(left_col, 3)
 
         # RIGHT COLUMN: AI Status & Detection Results
         right_col = QVBoxLayout()
@@ -325,7 +326,7 @@ class AIMonitoringView(QWidget):
 
         right_col.addWidget(res_card, 1)
 
-        layout.addLayout(right_col, 1)
+        layout.addLayout(right_col, 2)
 
     # --- TAB 2: Multi-Barn Simulation Tab (Requirement 5) -----------------
     def _build_multi_barn_tab(self) -> None:
@@ -804,7 +805,11 @@ class AIMonitoringView(QWidget):
 
     def _open_track_detail_dialog(self) -> None:
         session_id = getattr(self, "_last_session_id", None)
-        dlg = TrackDetailDialog(session_id=session_id, parent=self)
+        dlg = TrackDetailDialog(
+            session_id=session_id,
+            session_result=getattr(self, "_current_session_result", None),
+            parent=self
+        )
         dlg.exec()
 
     def _open_veterinary_form(self) -> None:
