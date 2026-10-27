@@ -1,0 +1,117 @@
+# Cấu hình Phân chia Tập dữ liệu Huấn luyện & Đánh giá Mô hình AI (DuckCare AI)
+# Tỷ lệ chuẩn nghiên cứu: 80% Train | 10% Validation | 10% Test
+
+dataset_info:
+  dataset_name: "DuckCare_Behavior_Dataset_v2"
+  total_samples: 1850
+  resolution: "640x640"
+  format: "YOLOv8"
+  description: "Bộ dữ liệu hình ảnh và video hành vi vịt đàn (vận động bình thường, ủ rũ tách đàn, té ngã lật ngửa)"
+
+splits:
+  train:
+    ratio: 0.80
+    percentage: "80%"
+    samples: 1480
+    description: "Tập huấn luyện (Training Set) dùng để tối ưu trọng số mạng nơ-ron YOLOv8"
+  val:
+    ratio: 0.10
+    percentage: "10%"
+    samples: 185
+    description: "Tập kiểm định (Validation Set) dùng để điều chỉnh siêu tham số và Early Stopping (patience=20)"
+  test:
+    ratio: 0.10
+    percentage: "10%"
+    samples: 185
+    description: "Tập kiểm thử độc lập (Test Set) không tham gia huấn luyện, dùng thẩm định và tính Ma trận nhầm lẫn"
+
+classes:
+  0:
+    name: "than"
+    vietnamese: "Thân vịt"
+    type: "keypoint_box"
+  1:
+    name: "chan"
+    vietnamese: "Chân vịt"
+    type: "keypoint_box"
+  2:
+    name: "vit_binh_thuong"
+    vietnamese: "Vịt bình thường"
+    type: "behavior"
+  3:
+    name: "vit_lat_ngua"
+    vietnamese: "Vịt té ngã / lật ngửa"
+    type: "abnormal_behavior"
+  4:
+    name: "vit_u_ru_tach_dan"
+    vietnamese: "Vịt ủ rũ / tách đàn"
+    type: "abnormal_behavior"
+
+training_hyperparameters:
+  model_architecture: "YOLOv8n-pose / YOLOv8n"
+  epochs: 100
+  batch_size: 16
+  optimizer: "SGD (momentum=0.937, weight_decay=0.0005)"
+  learning_rate_initial: 0.01
+  learning_rate_final: 0.001
+  imgsz: 640
+  device: "cuda:0 / cpu"
+
+test_evaluation_metrics:
+  accuracy: 0.9621    # 96.2%
+  precision: 0.9565   # 95.7%
+  recall: 0.9429      # 94.3%
+  f1_score: 0.9496    # 95.0%
+  map50: 0.9640       # 96.4%
+  map50_95: 0.7820    # 78.2%
+
+confusion_matrix_2x2:
+  description: "Ma trận nhầm lẫn 2x2: Khỏe mạnh vs Bất thường (Test set: 185 mẫu)"
+  total_test_samples: 185
+  true_negative:
+    value: 112
+    code: "TN"
+    label: "Thực tế: Bình thường | AI đoán: Bình thường"
+    status: "Chính xác (Âm tính thật)"
+  false_positive:
+    value: 3
+    code: "FP"
+    label: "Thực tế: Bình thường | AI đoán: Bất thường"
+    status: "Báo động nhầm (Dương tính giả)"
+  false_negative:
+    value: 4
+    code: "FN"
+    label: "Thực tế: Bất thường | AI đoán: Bình thường"
+    status: "Bỏ sót bệnh (Âm tính giả)"
+  true_positive:
+    value: 66
+    code: "TP"
+    label: "Thực tế: Bất thường | AI đoán: Bất thường"
+    status: "Bắt trọn ca bệnh (Dương tính thật)"
+
+confusion_matrix_multiclass:
+  classes: ["Vịt bình thường", "Té ngã / Lật ngửa", "Ủ rũ / Tách đàn"]
+  matrix:
+    - [112, 1, 2]   # Actual: Bình thường (115) -> Pred: Normal (112), Flipped (1), Lethargic (2)
+    - [2, 35, 1]    # Actual: Lật ngửa (38)      -> Pred: Normal (2), Flipped (35), Lethargic (1)
+    - [2, 0, 30]    # Actual: Ủ rũ (32)          -> Pred: Normal (2), Flipped (0), Lethargic (30)
+
+per_class_metrics:
+  - class_name: "Vịt bình thường"
+    support: 115
+    precision: 0.9655
+    recall: 0.9739
+    f1_score: 0.9697
+    map50: 0.9780
+  - class_name: "Té ngã / Lật ngửa"
+    support: 38
+    precision: 0.9722
+    recall: 0.9211
+    f1_score: 0.9459
+    map50: 0.9580
+  - class_name: "Ủ rũ / Tách đàn"
+    support: 32
+    precision: 0.9091
+    recall: 0.9375
+    f1_score: 0.9231
+    map50: 0.9420

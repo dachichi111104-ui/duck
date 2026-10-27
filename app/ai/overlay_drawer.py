@@ -72,8 +72,8 @@ def draw_duck_overlay(
         cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
 
         if show_labels:
-            status_str = "CÓ BỆNH" if is_sick else "KHỎE MẠNH"
-            text_str = f"ID:{track_id} | {status_str} ({confidence:.0%})"
+            status_str = "BẤT THƯỜNG" if is_sick else "BÌNH THƯỜNG"
+            text_str = f"[Box ID: #{track_id}] {status_str} ({confidence:.0%})"
 
             # Calculate text size for badge background
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -82,8 +82,8 @@ def draw_duck_overlay(
             (text_w, text_h), baseline = cv2.getTextSize(text_str, font, scale, thickness)
 
             # Draw top badge background
-            badge_y1 = max(0, y1 - text_h - 8)
-            badge_y2 = y1
+            badge_y1 = max(34, y1 - text_h - 8)
+            badge_y2 = max(34 + text_h + 8, y1)
             badge_x2 = min(w, x1 + text_w + 8)
             cv2.rectangle(frame, (x1, badge_y1), (badge_x2, badge_y2), box_color, -1)
 
@@ -91,12 +91,19 @@ def draw_duck_overlay(
             cv2.putText(
                 frame,
                 text_str,
-                (x1 + 4, max(text_h + 2, y1 - 4)),
+                (x1 + 4, badge_y1 + text_h + 4),
                 font,
                 scale,
                 COLOR_TEXT_WHITE,
                 thickness,
                 lineType=cv2.LINE_AA
             )
+
+    if show_labels and tracks:
+        # Top OSD Banner with Frame ID and track count
+        cv2.rectangle(frame, (0, 0), (w, 32), (18, 22, 20), -1)
+        cv2.line(frame, (0, 32), (w, 32), COLOR_HEALTHY_BGR, 2)
+        osd_text = f"Frame ID: #{frame_idx:04d} | Box ID theo doi: {len(tracks)} ca the"
+        cv2.putText(frame, osd_text, (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.50, COLOR_TEXT_WHITE, 1, lineType=cv2.LINE_AA)
 
     return frame

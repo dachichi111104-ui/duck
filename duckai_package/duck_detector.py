@@ -60,9 +60,14 @@ def analyze_video(
     effective_fps = fps / stride
 
     writer = None
+    repeat_frames = 1
     if save_annotated_path:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(save_annotated_path, fourcc, effective_fps, (w, h))
+        # Video đầu ra được xuất ở tốc độ 10 FPS và nhân bản frame (0.5x slow-motion)
+        # giúp người dùng và hội đồng thẩm định quan sát rõ nét từng chi tiết hành vi
+        out_fps = 10.0
+        repeat_frames = max(2, int(round((out_fps / max(1.0, effective_fps)) * 2.0)))
+        writer = cv2.VideoWriter(save_annotated_path, fourcc, out_fps, (w, h))
 
     effective_window = max(5, int(round(effective_fps * 1.5)))
     flip_history = defaultdict(lambda: deque(maxlen=effective_window))
@@ -187,8 +192,18 @@ def analyze_video(
                 boxes_list = alert_boxes.pop(tid, [])
                 closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
-        # Vẽ bounding box và nhãn trực quan, chính xác lên frame
+        # Vẽ OSD Banner trên đầu video hiển thị rõ Frame ID và Thống kê thời gian thực
         if writer or on_frame:
+            # Header banner nền sẫm bán trong suốt
+            cv2.rectangle(frame, (0, 0), (w, 36), (18, 22, 20), -1)
+            banner_line_color = (0, 0, 220) if risky_track_ids else (46, 125, 50)
+            cv2.line(frame, (0, 36), (w, 36), banner_line_color, 2)
+            cur_time = frame_idx / fps if fps > 0 else 0.0
+            osd_left = f"Frame ID: #{frame_idx:04d}/{total_frames:04d} | Thoi gian: {cur_time:05.2f}s | FPS: {fps:.1f}"
+            osd_right = f"Tong vit: {len(than_info)} | Bat thuong: {len(risky_track_ids)}"
+            cv2.putText(frame, osd_left, (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, osd_right, (max(10, w - 270), 24), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (0, 240, 255) if risky_track_ids else (120, 240, 120), 1, cv2.LINE_AA)
+
             for chan in chan_boxes:
                 _, cx1, cy1, cx2, cy2, _ = chan
                 cv2.rectangle(frame, (cx1, cy1), (cx2, cy2), (0, 140, 255), 1)
@@ -196,17 +211,19 @@ def analyze_video(
             for t in than_info:
                 _, x1, y1, x2, y2, tid = t["box"]
                 is_abnormal = tid in risky_track_ids
-                color = (0, 0, 255) if is_abnormal else (46, 125, 50)
-                tag = f"BAT THUONG #{tid}" if is_abnormal else f"Vit #{tid}"
+                color = (0, 0, 220) if is_abnormal else (46, 125, 50)
+                tag = f"[Box ID: #{tid}] BAT THUONG" if is_abnormal else f"[Box ID: #{tid}] Binh thuong"
                 thickness = 3 if is_abnormal else 2
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
-                badge_w = len(tag) * 11 + 6
-                badge_h = 22
-                cv2.rectangle(frame, (x1, max(0, y1 - badge_h)), (x1 + badge_w, y1), color, -1)
-                cv2.putText(frame, tag, (x1 + 3, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+                badge_w = len(tag) * 10 + 8
+                badge_h = 24
+                badge_y_top = max(38, y1 - badge_h)
+                cv2.rectangle(frame, (x1, badge_y_top), (min(w, x1 + badge_w), badge_y_top + badge_h), color, -1)
+                cv2.putText(frame, tag, (x1 + 4, badge_y_top + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
         if writer:
-            writer.write(frame)
+            for _ in range(repeat_frames):
+                writer.write(frame)
         if on_frame:
             on_frame(frame, frame_idx, total_frames, list(risky_track_ids))
 
