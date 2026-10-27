@@ -14,7 +14,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget,
     QFileDialog, QFrame, QMessageBox, QGridLayout, QComboBox, QScrollArea,
-    QSizePolicy, QSlider, QProgressBar,
+    QSizePolicy, QSlider, QProgressBar, QHeaderView,
 )
 import cv2
 import numpy as np
@@ -50,23 +50,11 @@ class AIMonitoringView(QWidget):
         self._playback_cap: cv2.VideoCapture | None = None
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        outer.addWidget(scroll)
-
-        self.content = QWidget()
-        scroll.setWidget(self.content)
-
-        layout = QVBoxLayout(self.content)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(6)
 
         self.tabs = QTabWidget()
-        layout.addWidget(self.tabs)
+        outer.addWidget(self.tabs)
 
         self.analysis_tab = QWidget()
         self.multi_barn_tab = QWidget()
@@ -96,7 +84,19 @@ class AIMonitoringView(QWidget):
 
     # --- TAB 1: Single Video / Webcam Analysis Tab -----------------------
     def _build_analysis_tab(self) -> None:
-        layout = QHBoxLayout(self.analysis_tab)
+        outer_layout = QVBoxLayout(self.analysis_tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        outer_layout.addWidget(scroll)
+
+        content = QWidget()
+        scroll.setWidget(content)
+
+        layout = QHBoxLayout(content)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
@@ -156,7 +156,7 @@ class AIMonitoringView(QWidget):
         # Video Preview Frame (Dark #101512 with Visual AI Overlay)
         self.preview_frame = QFrame()
         self.preview_frame.setObjectName("VideoFrame")
-        self.preview_frame.setMinimumHeight(180)
+        self.preview_frame.setMinimumHeight(160)
         self.preview_frame.setMaximumHeight(380)
         self.preview_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -174,26 +174,47 @@ class AIMonitoringView(QWidget):
 
         left_col.addWidget(self.preview_frame, 1)
 
-        # Control Bar below video
+        # Control Bar below video (2 compact rows to prevent horizontal stretch)
         ctrl_card = QFrame()
         ctrl_card.setObjectName("Card")
-        ctrl_layout = QHBoxLayout(ctrl_card)
-        ctrl_layout.setContentsMargins(6, 4, 6, 4)
-        ctrl_layout.setSpacing(6)
+        ctrl_card_lay = QVBoxLayout(ctrl_card)
+        ctrl_card_lay.setContentsMargins(6, 4, 6, 4)
+        ctrl_card_lay.setSpacing(4)
 
+        # Row 1: File name + Analyze btn + Reset btn
+        r1_lay = QHBoxLayout()
+        r1_lay.setSpacing(6)
         self.selected_file_label = QLabel("Chưa chọn tệp video nào")
         self.selected_file_label.setStyleSheet("font-size: 10px; color: #68736B; font-weight: 600;")
-        self.selected_file_label.setMaximumWidth(150)
-        ctrl_layout.addWidget(self.selected_file_label, 1)
+        self.selected_file_label.setWordWrap(True)
+        r1_lay.addWidget(self.selected_file_label, 1)
 
-        # Video Playback Speed Control
-        speed_lbl = QLabel("Tốc độ:")
+        self.analyze_btn = QPushButton("Phân tích")
+        self.analyze_btn.setIcon(get_icon("fa5s.play", color="#FFFFFF"))
+        self.analyze_btn.setFixedHeight(24)
+        self.analyze_btn.setStyleSheet("font-size: 10px; padding: 2px 8px;")
+        self.analyze_btn.setEnabled(False)
+        self.analyze_btn.clicked.connect(self._run_analysis)
+        r1_lay.addWidget(self.analyze_btn)
+
+        stop_btn = QPushButton("Đặt lại")
+        stop_btn.setObjectName("SecondaryButton")
+        stop_btn.setFixedHeight(24)
+        stop_btn.setStyleSheet("font-size: 10px; padding: 2px 8px;")
+        stop_btn.clicked.connect(self._reset_analysis)
+        r1_lay.addWidget(stop_btn)
+        ctrl_card_lay.addLayout(r1_lay)
+
+        # Row 2: Playback speed label, combo, and slider
+        r2_lay = QHBoxLayout()
+        r2_lay.setSpacing(6)
+        speed_lbl = QLabel("Tốc độ phát:")
         speed_lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #2E7D32;")
-        ctrl_layout.addWidget(speed_lbl)
+        r2_lay.addWidget(speed_lbl)
 
         self.speed_combo = QComboBox()
-        self.speed_combo.setFixedHeight(24)
-        self.speed_combo.setFixedWidth(80)
+        self.speed_combo.setFixedHeight(22)
+        self.speed_combo.setFixedWidth(75)
         self.speed_combo.setStyleSheet("font-size: 10px; padding: 1px 2px;")
         self.speed_combo.addItem("0.25x", 0.25)
         self.speed_combo.addItem("0.5x", 0.5)
@@ -203,30 +224,15 @@ class AIMonitoringView(QWidget):
         self.speed_combo.addItem("2.0x", 2.0)
         self.speed_combo.setCurrentIndex(1)  # Default 0.5x
         self.speed_combo.currentIndexChanged.connect(self._on_speed_changed)
-        ctrl_layout.addWidget(self.speed_combo)
+        r2_lay.addWidget(self.speed_combo)
 
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setRange(25, 200)
         self.speed_slider.setValue(50)  # 50 = 0.5x
-        self.speed_slider.setFixedWidth(55)
         self.speed_slider.setToolTip("Kéo thanh trượt để chỉnh tốc độ phát video (0.25x - 2.0x)")
         self.speed_slider.valueChanged.connect(self._on_slider_speed_changed)
-        ctrl_layout.addWidget(self.speed_slider)
-
-        self.analyze_btn = QPushButton("Phân tích")
-        self.analyze_btn.setIcon(get_icon("fa5s.play", color="#FFFFFF"))
-        self.analyze_btn.setFixedHeight(24)
-        self.analyze_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
-        self.analyze_btn.setEnabled(False)
-        self.analyze_btn.clicked.connect(self._run_analysis)
-        ctrl_layout.addWidget(self.analyze_btn)
-
-        stop_btn = QPushButton("Đặt lại")
-        stop_btn.setObjectName("SecondaryButton")
-        stop_btn.setFixedHeight(24)
-        stop_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
-        stop_btn.clicked.connect(self._reset_analysis)
-        ctrl_layout.addWidget(stop_btn)
+        r2_lay.addWidget(self.speed_slider, 1)
+        ctrl_card_lay.addLayout(r2_lay)
 
         left_col.addWidget(ctrl_card)
         layout.addLayout(left_col, 3)
@@ -332,9 +338,15 @@ class AIMonitoringView(QWidget):
     def _build_multi_barn_tab(self) -> None:
         mb_layout = QVBoxLayout(self.multi_barn_tab)
         mb_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        mb_layout.addWidget(scroll)
+
         self.multi_barn_widget = MultiBarnSimulationWidget(self.current_user)
         self.multi_barn_widget._pause_simulation()
-        mb_layout.addWidget(self.multi_barn_widget)
+        scroll.setWidget(self.multi_barn_widget)
 
     # --- TAB 3: History Tab ----------------------------------------------
     def _build_history_tab(self) -> None:
@@ -352,7 +364,19 @@ class AIMonitoringView(QWidget):
 
     # --- TAB 4: Model Evaluation & Confusion Matrix Tab -------------------
     def _build_matrix_tab(self) -> None:
-        layout = QVBoxLayout(self.matrix_tab)
+        outer_layout = QVBoxLayout(self.matrix_tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        outer_layout.addWidget(scroll)
+
+        content = QWidget()
+        scroll.setWidget(content)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
@@ -380,7 +404,9 @@ class AIMonitoringView(QWidget):
         tb_lay.setSpacing(2)
         tb_lay.addWidget(QLabel("<b style='color:#2E7D32; font-size:11px;'>TẬP HUẤN LUYỆN (TRAIN)</b>"))
         tb_lay.addWidget(QLabel("<b style='font-size:15px; color:#1B5E20;'>80.0%</b> <span style='color:#555;'>(1,480 ảnh)</span>"))
-        tb_lay.addWidget(QLabel("<span style='font-size:10px; color:#4E5D52;'>Dùng huấn luyện trọng số nơ-ron YOLOv8, học đặc trưng dáng đi, thân và chân vịt.</span>"))
+        train_desc = QLabel("<span style='font-size:10px; color:#4E5D52;'>Dùng huấn luyện trọng số nơ-ron YOLOv8, học đặc trưng dáng đi, thân và chân vịt.</span>")
+        train_desc.setWordWrap(True)
+        tb_lay.addWidget(train_desc)
         split_info_row.addWidget(train_box, 1)
 
         # Val Card
@@ -391,7 +417,9 @@ class AIMonitoringView(QWidget):
         vb_lay.setSpacing(2)
         vb_lay.addWidget(QLabel("<b style='color:#1976D2; font-size:11px;'>TẬP KIỂM ĐỊNH (VAL)</b>"))
         vb_lay.addWidget(QLabel("<b style='font-size:15px; color:#0D47A1;'>10.0%</b> <span style='color:#555;'>(185 ảnh)</span>"))
-        vb_lay.addWidget(QLabel("<span style='font-size:10px; color:#4E5D52;'>Dùng tinh chỉnh siêu tham số và kích hoạt Early Stopping (patience=20) chống Overfitting.</span>"))
+        val_desc = QLabel("<span style='font-size:10px; color:#4E5D52;'>Dùng tinh chỉnh siêu tham số và kích hoạt Early Stopping (patience=20) chống Overfitting.</span>")
+        val_desc.setWordWrap(True)
+        vb_lay.addWidget(val_desc)
         split_info_row.addWidget(val_box, 1)
 
         # Test Card
@@ -402,7 +430,9 @@ class AIMonitoringView(QWidget):
         tst_lay.setSpacing(2)
         tst_lay.addWidget(QLabel("<b style='color:#E65100; font-size:11px;'>TẬP KIỂM THỬ (TEST)</b>"))
         tst_lay.addWidget(QLabel("<b style='font-size:15px; color:#BF360C;'>10.0%</b> <span style='color:#555;'>(185 ảnh)</span>"))
-        tst_lay.addWidget(QLabel("<span style='font-size:10px; color:#4E5D52;'>Dữ liệu hoàn toàn mới 100% độc lập, thẩm định ma trận nhầm lẫn & mAP50 trước hội đồng.</span>"))
+        test_desc = QLabel("<span style='font-size:10px; color:#4E5D52;'>Dữ liệu hoàn toàn mới 100% độc lập, thẩm định ma trận nhầm lẫn & mAP50 trước hội đồng.</span>")
+        test_desc.setWordWrap(True)
+        tst_lay.addWidget(test_desc)
         split_info_row.addWidget(test_box, 1)
 
         sc_layout.addLayout(split_info_row)
@@ -421,9 +451,13 @@ class AIMonitoringView(QWidget):
             fl = QVBoxLayout(frame)
             fl.setContentsMargins(4, 2, 4, 2)
             fl.setSpacing(1)
-            fl.addWidget(QLabel(f"<span style='font-size:10px; color:#666;'>{title}</span>"))
+            t_lbl = QLabel(f"<span style='font-size:10px; color:#666;'>{title}</span>")
+            t_lbl.setWordWrap(True)
+            fl.addWidget(t_lbl)
             fl.addWidget(QLabel(f"<b style='font-size:16px; color:{tone_color};'>{value}</b>"))
-            fl.addWidget(QLabel(f"<span style='font-size:9px; color:#888;'>{desc}</span>"))
+            d_lbl = QLabel(f"<span style='font-size:9px; color:#888;'>{desc}</span>")
+            d_lbl.setWordWrap(True)
+            fl.addWidget(d_lbl)
             return frame
 
         mc_layout.addWidget(make_kpi("Độ chính xác toàn diện (Accuracy)", "96.2%", "178 / 185 mẫu dự đoán đúng", "#2E7D32"), 1)
@@ -459,17 +493,20 @@ class AIMonitoringView(QWidget):
 
         h_pred_neg = QLabel("<b>Dự đoán: Bình thường</b>")
         h_pred_neg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        h_pred_neg.setWordWrap(True)
         h_pred_neg.setStyleSheet("font-size: 10px; font-weight: 700; color: #2E7D32; background: #E8F5E9; border-radius: 4px; padding: 4px;")
         cm_grid.addWidget(h_pred_neg, 0, 1)
 
         h_pred_pos = QLabel("<b>Dự đoán: Bất thường (Bệnh)</b>")
         h_pred_pos.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        h_pred_pos.setWordWrap(True)
         h_pred_pos.setStyleSheet("font-size: 10px; font-weight: 700; color: #D32F2F; background: #FFEBEE; border-radius: 4px; padding: 4px;")
         cm_grid.addWidget(h_pred_pos, 0, 2)
 
         # Row 1: Actual Normal
         lbl_act_neg = QLabel("<b>Thực tế:<br>Bình thường</b><br><span style='font-size:9px;'>(115 mẫu)</span>")
         lbl_act_neg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_act_neg.setWordWrap(True)
         lbl_act_neg.setStyleSheet("font-size: 10px; background: #E8F5E9; border-radius: 4px; padding: 4px;")
         cm_grid.addWidget(lbl_act_neg, 1, 0)
 
@@ -481,7 +518,9 @@ class AIMonitoringView(QWidget):
         tn_lay.setSpacing(2)
         tn_lay.addWidget(QLabel("<b style='color:#1B5E20; font-size:14px;'>TN = 112</b>"))
         tn_lay.addWidget(QLabel("<span style='font-size:10px; color:#2E7D32; font-weight:600;'>Âm tính thật (60.5%)</span>"))
-        tn_lay.addWidget(QLabel("<span style='font-size:9px; color:#333;'>Thực tế bình thường & AI đoán bình thường (Đúng chuẩn).</span>"))
+        tn_d = QLabel("<span style='font-size:9px; color:#333;'>Thực tế bình thường & AI đoán bình thường (Đúng chuẩn).</span>")
+        tn_d.setWordWrap(True)
+        tn_lay.addWidget(tn_d)
         cm_grid.addWidget(tn_cell, 1, 1)
 
         # Cell FP [0, 1]
@@ -492,12 +531,15 @@ class AIMonitoringView(QWidget):
         fp_lay.setSpacing(2)
         fp_lay.addWidget(QLabel("<b style='color:#E65100; font-size:14px;'>FP = 3</b>"))
         fp_lay.addWidget(QLabel("<span style='font-size:10px; color:#E65100; font-weight:600;'>Dương tính giả (1.6%)</span>"))
-        fp_lay.addWidget(QLabel("<span style='font-size:9px; color:#333;'>Vịt khỏe nhưng AI cảnh báo nhầm (Sai số Loại I - Rất thấp).</span>"))
+        fp_d = QLabel("<span style='font-size:9px; color:#333;'>Vịt khỏe nhưng AI cảnh báo nhầm (Sai số Loại I - Rất thấp).</span>")
+        fp_d.setWordWrap(True)
+        fp_lay.addWidget(fp_d)
         cm_grid.addWidget(fp_cell, 1, 2)
 
         # Row 2: Actual Abnormal
         lbl_act_pos = QLabel("<b>Thực tế:<br>Bất thường</b><br><span style='font-size:9px;'>(70 mẫu)</span>")
         lbl_act_pos.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_act_pos.setWordWrap(True)
         lbl_act_pos.setStyleSheet("font-size: 10px; background: #FFEBEE; border-radius: 4px; padding: 4px;")
         cm_grid.addWidget(lbl_act_pos, 2, 0)
 
@@ -509,7 +551,9 @@ class AIMonitoringView(QWidget):
         fn_lay.setSpacing(2)
         fn_lay.addWidget(QLabel("<b style='color:#B71C1C; font-size:14px;'>FN = 4</b>"))
         fn_lay.addWidget(QLabel("<span style='font-size:10px; color:#B71C1C; font-weight:600;'>Âm tính giả (2.2%)</span>"))
-        fn_lay.addWidget(QLabel("<span style='font-size:9px; color:#333;'>Bỏ sót bệnh (Sai số Loại II - Chỉ 4 mẫu do vịt bị bầy che khuất).</span>"))
+        fn_d = QLabel("<span style='font-size:9px; color:#333;'>Bỏ sót bệnh (Sai số Loại II - Chỉ 4 mẫu do vịt bị bầy che khuất).</span>")
+        fn_d.setWordWrap(True)
+        fn_lay.addWidget(fn_d)
         cm_grid.addWidget(fn_cell, 2, 1)
 
         # Cell TP [1, 1]
@@ -520,7 +564,9 @@ class AIMonitoringView(QWidget):
         tp_lay.setSpacing(2)
         tp_lay.addWidget(QLabel("<b style='color:#0D47A1; font-size:14px;'>TP = 66</b>"))
         tp_lay.addWidget(QLabel("<span style='font-size:10px; color:#0D47A1; font-weight:600;'>Dương tính thật (35.7%)</span>"))
-        tp_lay.addWidget(QLabel("<span style='font-size:9px; color:#333;'>Bắt trọn chính xác các ca lật ngửa, co giật và ủ rũ tách đàn.</span>"))
+        tp_d = QLabel("<span style='font-size:9px; color:#333;'>Bắt trọn chính xác các ca lật ngửa, co giật và ủ rũ tách đàn.</span>")
+        tp_d.setWordWrap(True)
+        tp_lay.addWidget(tp_d)
         cm_grid.addWidget(tp_cell, 2, 2)
 
         cm_layout.addLayout(cm_grid)
@@ -570,6 +616,7 @@ class AIMonitoringView(QWidget):
             "mAP@50",
             "Đánh giá Hội đồng"
         ])
+        self.matrix_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
         report_rows = [
             ["Vịt khỏe mạnh (Vận động bình thường)", "115 mẫu", "96.55%", "97.39%", "96.97%", "97.80%", "Xuất sắc (Vượt ngưỡng 95%)"],

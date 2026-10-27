@@ -4,10 +4,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from PyQt6.QtWidgets import QApplication
+from app.database.connection import init_database
 from app.services.auth_service import CurrentUser
 from app.ui.main_window import MainWindow, MenuKeys
 
 def main():
+    init_database()
     app = QApplication(sys.argv)
     user = CurrentUser(
         id=1,
@@ -43,6 +45,7 @@ def main():
         print(f"Successfully loaded {key}")
 
     print("\nSUCCESS: All views created and refreshed without errors!")
+    window.close()
 
 if __name__ == "__main__":
     main()

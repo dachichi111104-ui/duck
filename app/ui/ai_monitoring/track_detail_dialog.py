@@ -86,6 +86,20 @@ class TrackDetailDialog(QDialog):
     def _load_track_data(self) -> None:
         rows = []
 
+        max_dur = None
+        if self.session_result:
+            summary = getattr(self.session_result, "summary", None)
+            if isinstance(summary, dict):
+                max_dur = summary.get("duration_sec")
+        if not max_dur and self.session_id:
+            try:
+                with session_scope() as s:
+                    sess_obj = s.query(AIAnalysisSession).filter(AIAnalysisSession.id == self.session_id).first()
+                    if sess_obj and sess_obj.duration:
+                        max_dur = float(sess_obj.duration)
+            except Exception:
+                pass
+
         # 1. First priority: Use live in-memory session_result from current analysis
         if self.session_result and getattr(self.session_result, "tracks", None):
             tracks = self.session_result.tracks
@@ -97,7 +111,18 @@ class TrackDetailDialog(QDialog):
 
                 s_time = getattr(t, "start_time", 0.0)
                 e_time = getattr(t, "end_time", 5.0)
-                dur = max(0.2, e_time - s_time)
+
+                # Clamp/scale to real video duration if present
+                if max_dur and max_dur > 0:
+                    if e_time > max_dur * 1.05:
+                        ratio = max_dur / e_time
+                        s_time = round(s_time * ratio, 1)
+                        e_time = round(min(max_dur, e_time * ratio), 1)
+                    else:
+                        e_time = round(min(max_dur, e_time), 1)
+                        s_time = round(min(s_time, e_time), 1)
+
+                dur = round(max(0.1, e_time - s_time), 1)
 
                 # Match alerts for this track
                 matched_alerts = [a for a in alerts if getattr(a, "track_id", None) == t_id]
@@ -126,6 +151,8 @@ class TrackDetailDialog(QDialog):
                 results = session.query(AIDetectionResult).filter(AIDetectionResult.session_id == self.session_id).all()
                 alerts = session.query(AIAlert).filter(AIAlert.session_id == self.session_id).all()
 
+                sess_duration = float(sess_obj.duration) if sess_obj and sess_obj.duration else (max_dur or 0.0)
+
                 # Group results by track_id
                 track_map = {}
                 for r in results:
@@ -143,11 +170,20 @@ class TrackDetailDialog(QDialog):
 
                     timestamps = [d.timestamp for d in d_list if d.timestamp is not None]
                     min_t = min(timestamps) if timestamps else 0.0
-                    max_t = max(timestamps) if timestamps else (sess_obj.duration if sess_obj and sess_obj.duration else 5.0)
-                    if max_t <= min_t:
-                        max_t = min_t + (sess_obj.duration if sess_obj and sess_obj.duration else 5.0)
+                    max_t = max(timestamps) if timestamps else (sess_duration if sess_duration else 5.0)
 
-                    dur = max(0.2, max_t - min_t)
+                    if sess_duration and sess_duration > 0:
+                        if max_t > sess_duration * 1.05:
+                            ratio = sess_duration / max_t
+                            min_t = round(min_t * ratio, 1)
+                            max_t = round(sess_duration, 1)
+                        else:
+                            max_t = round(min(sess_duration, max_t), 1)
+                            min_t = round(min(min_t, max_t), 1)
+                    elif max_t <= min_t:
+                        max_t = min_t + 5.0
+
+                    dur = round(max(0.1, max_t - min_t), 1)
                     alert_count = max(len(matched_alerts), 1 if is_abnormal else 0)
 
                     behavior_str = "Bất thường (Lật ngửa / Té ngã)" if is_abnormal else "Khỏe mạnh (Bình thường)"

@@ -60,14 +60,9 @@ def analyze_video(
     effective_fps = fps / stride
 
     writer = None
-    repeat_frames = 1
     if save_annotated_path:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        # Video đầu ra được xuất ở tốc độ 10 FPS và nhân bản frame (0.5x slow-motion)
-        # giúp người dùng và hội đồng thẩm định quan sát rõ nét từng chi tiết hành vi
-        out_fps = 10.0
-        repeat_frames = max(2, int(round((out_fps / max(1.0, effective_fps)) * 2.0)))
-        writer = cv2.VideoWriter(save_annotated_path, fourcc, out_fps, (w, h))
+        writer = cv2.VideoWriter(save_annotated_path, fourcc, effective_fps, (w, h))
 
     effective_window = max(5, int(round(effective_fps * 1.5)))
     flip_history = defaultdict(lambda: deque(maxlen=effective_window))
@@ -78,10 +73,6 @@ def analyze_video(
     open_alerts = {}  # track_id -> start_frame
     alert_boxes = defaultdict(list)  # track_id -> [(cx, cy, w, h)]
     closed_alerts = []  # danh sách các đợt đã kết thúc
-
-    # Bộ nhớ duy trì trạng thái cảnh báo (Hold-off / Grace period) chống hiện tượng nhấp nháy xanh - đỏ
-    alert_grace_frames = defaultdict(int)
-    grace_limit = max(10, int(round(effective_fps * 3.0)))  # Giữ đỏ ít nhất 3.0 giây
 
     MAX_DX_RATIO, MAX_DY_RATIO = 1.2, 1.0
     frame_idx = 0
@@ -174,26 +165,15 @@ def analyze_video(
                 move_ratio = (std_x + std_y) / 2 / max(avg_h, 1e-6)
                 is_still = move_ratio < move_thresh
 
-            # Phán đoán bất thường:
-            # 1. Lật ngửa / té ngã: tỷ lệ lật >= 0.45 (không bắt buộc đứng im vì vịt lật ngửa thường co giật, đạp chân)
-            # 2. Hoặc ủ rũ / bất động: đứng im lâu trong đàn
-            is_flipped_risk = (flip_ratio >= 0.45)
-            is_lethargic_risk = (is_still and len(positions) >= 6 and flip_ratio >= 0.25)
-            enough_history = len(hist) >= max(3, int(effective_window * 0.35))
-
-            is_confirmed_risk = enough_history and (is_flipped_risk or is_lethargic_risk)
+            # Phán đoán bất thường: Tỷ lệ lật ngửa theo ngưỡng chuẩn và tư thế bất động
+            enough_history = len(hist) >= max(3, int(effective_window * 0.4))
+            is_confirmed_risk = enough_history and flip_ratio >= ratio and is_still
 
             if is_confirmed_risk:
-                alert_grace_frames[tid] = grace_limit
                 risky_track_ids.add(tid)
                 alert_boxes[tid].append((than_cx, than_cy, t["w"], t["h"]))
                 if tid not in open_alerts:
                     open_alerts[tid] = frame_idx  # bắt đầu 1 đợt cảnh báo mới
-            elif alert_grace_frames[tid] > 0:
-                # Đang trong thời gian duy trì (Hold-off): giữ nguyên còi đỏ, chống chớp tắt xanh đỏ khi giãy giụa
-                alert_grace_frames[tid] -= 1
-                risky_track_ids.add(tid)
-                alert_boxes[tid].append((than_cx, than_cy, t["w"], t["h"]))
             else:
                 if tid in open_alerts:
                     # đợt cảnh báo vừa kết thúc -> chốt lại
@@ -201,33 +181,12 @@ def analyze_video(
                     boxes_list = alert_boxes.pop(tid, [])
                     closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
-        # Kế thừa cảnh báo khi Tracker bị nhảy ID tại cùng tọa độ vịt nằm
-        for tid in active_ids_this_frame:
-            if tid not in open_alerts and alert_grace_frames[tid] == 0:
-                t_obj = next((x for x in than_info if x["box"][5] == tid), None)
-                if t_obj:
-                    tcx, tcy, th = t_obj["cx"], t_obj["cy"], t_obj["h"]
-                    for old_tid, g_left in list(alert_grace_frames.items()):
-                        if g_left > 0 and old_tid not in active_ids_this_frame:
-                            if len(pos_history[old_tid]) > 0:
-                                old_cx, old_cy = pos_history[old_tid][-1]
-                                dist = np.sqrt((tcx - old_cx)**2 + (tcy - old_cy)**2)
-                                if dist < max(th, 40.0) * 1.5:
-                                    alert_grace_frames[tid] = g_left
-                                    if old_tid in open_alerts:
-                                        open_alerts[tid] = open_alerts.pop(old_tid)
-                                    risky_track_ids.add(tid)
-                                    break
-
-        # Đóng các đợt cảnh báo của track đã biến mất hoàn toàn khỏi frame (bị mất track hẳn sau thời gian ân hạn)
+        # Đóng các đợt cảnh báo của track đã biến mất hoàn toàn khỏi frame (bị mất track hẳn)
         for tid in list(open_alerts.keys()):
             if tid not in active_ids_this_frame:
-                if alert_grace_frames[tid] > 0:
-                    alert_grace_frames[tid] -= 1
-                else:
-                    start_f = open_alerts.pop(tid)
-                    boxes_list = alert_boxes.pop(tid, [])
-                    closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
+                start_f = open_alerts.pop(tid)
+                boxes_list = alert_boxes.pop(tid, [])
+                closed_alerts.append(_make_alert(tid, start_f, frame_idx - stride, fps, boxes_list))
 
         # Vẽ OSD Banner trên đầu video hiển thị rõ Frame ID và Thống kê thời gian thực
         if writer or on_frame:
@@ -259,8 +218,7 @@ def analyze_video(
                 cv2.putText(frame, tag, (x1 + 4, badge_y_top + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
         if writer:
-            for _ in range(repeat_frames):
-                writer.write(frame)
+            writer.write(frame)
         if on_frame:
             on_frame(frame, frame_idx, total_frames, list(risky_track_ids))
 

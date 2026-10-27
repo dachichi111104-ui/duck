@@ -346,6 +346,7 @@ class RealAIService(AIServiceBase):
             detections=detections,
             alerts=alerts,
             summary={
+                "duration_sec": duration_sec,
                 "total_individuals": total_count,
                 "normal_individuals": normal_count,
                 "suspected_individuals": sick_count,
