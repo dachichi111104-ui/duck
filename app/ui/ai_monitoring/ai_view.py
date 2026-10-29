@@ -352,10 +352,49 @@ class AIMonitoringView(QWidget):
     def _build_history_tab(self) -> None:
         layout = QVBoxLayout(self.history_tab)
         layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+
+        # Header card with action buttons
+        hdr_card = QFrame()
+        hdr_card.setObjectName("Card")
+        hc_lay = QHBoxLayout(hdr_card)
+        hc_lay.setContentsMargins(8, 6, 8, 6)
+        hc_lay.setSpacing(8)
+
+        hc_title = QLabel("<b>Lịch sử các phiên phân tích Video / Camera AI</b>")
+        hc_title.setStyleSheet("font-size: 11px;")
+        hc_lay.addWidget(hc_title)
+        hc_lay.addStretch()
+
+        replay_btn = QPushButton(" Xem lại video đã chọn")
+        replay_btn.setIcon(get_icon("fa5s.play-circle", color="#FFFFFF"))
+        replay_btn.setFixedHeight(28)
+        replay_btn.setStyleSheet("font-size: 10px; font-weight: 700; background-color: #2E7D32;")
+        replay_btn.clicked.connect(self._replay_selected_history)
+        hc_lay.addWidget(replay_btn)
+
+        track_btn = QPushButton(" Xem chi tiết cá thể")
+        track_btn.setIcon(get_icon("fa5s.list-ul", color="#2E7D32"))
+        track_btn.setObjectName("SecondaryButton")
+        track_btn.setFixedHeight(28)
+        track_btn.setStyleSheet("font-size: 10px; font-weight: 700;")
+        track_btn.clicked.connect(self._view_selected_history_tracks)
+        hc_lay.addWidget(track_btn)
+
+        open_folder_btn = QPushButton(" Mở thư mục video (Explorer)")
+        open_folder_btn.setIcon(get_icon("fa5s.folder-open", color="#2E7D32"))
+        open_folder_btn.setObjectName("SecondaryButton")
+        open_folder_btn.setFixedHeight(28)
+        open_folder_btn.setStyleSheet("font-size: 10px;")
+        open_folder_btn.clicked.connect(self._open_videos_folder)
+        hc_lay.addWidget(open_folder_btn)
+
+        layout.addWidget(hdr_card)
 
         self.history_table = build_table(
             ["Tệp Video", "Thời lượng", "Độ phân giải", "FPS", "Thời gian phân tích", "Trạng thái Pipeline", "Phiên bản Model"]
         )
+        self.history_table.itemDoubleClicked.connect(self._on_history_double_clicked)
         layout.addWidget(self.history_table)
 
         self.history_empty = EmptyState("Chưa có phiên phân tích nào trong lịch sử.")
@@ -894,6 +933,54 @@ class AIMonitoringView(QWidget):
             )
 
     # --- History tab -----------------------------------------------------
+    def _open_videos_folder(self) -> None:
+        import os
+        from app.config.settings import VIDEOS_DIR
+        VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(VIDEOS_DIR))
+        except Exception:
+            QMessageBox.information(self, "Thư mục video", f"Thư mục lưu trữ video: {VIDEOS_DIR}")
+
+    def _get_selected_history_session(self):
+        row = self.history_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Chưa chọn phiên", "Vui lòng nhấp chọn một dòng phiên phân tích trong bảng để xem lại.")
+            return None, None
+        item = self.history_table.item(row, 0)
+        if not item:
+            return None, None
+        sess_id = item.data(Qt.ItemDataRole.UserRole)
+        video_path = item.data(Qt.ItemDataRole.UserRole + 1)
+        return sess_id, video_path
+
+    def _on_history_double_clicked(self, item) -> None:
+        self._replay_selected_history()
+
+    def _replay_selected_history(self) -> None:
+        sess_id, video_path = self._get_selected_history_session()
+        if not sess_id or not video_path:
+            return
+        self._selected_video_path = video_path
+        self._last_session_id = sess_id
+        self._current_session_result = None
+
+        from pathlib import Path
+        file_name = Path(video_path).name
+        self.selected_file_label.setText(f"Xem lại: {file_name}")
+        self.track_detail_btn.show()
+
+        # Chuyển về Tab 1 và kích hoạt phát lại video annotated
+        self.tabs.setCurrentIndex(0)
+        self._start_visual_overlay_playback()
+
+    def _view_selected_history_tracks(self) -> None:
+        sess_id, _ = self._get_selected_history_session()
+        if not sess_id:
+            return
+        dlg = TrackDetailDialog(session_id=sess_id, session_result=None, parent=self)
+        dlg.exec()
+
     def _refresh_history(self) -> None:
         sessions = self._service.list_sessions()
         self.history_table.setRowCount(len(sessions))
@@ -904,6 +991,10 @@ class AIMonitoringView(QWidget):
                 s.started_at.strftime("%Y-%m-%d %H:%M") if s.started_at else "-",
                 s.status, s.model_version,
             ])
+            item = self.history_table.item(row, 0)
+            if item:
+                item.setData(Qt.ItemDataRole.UserRole, s.id)
+                item.setData(Qt.ItemDataRole.UserRole + 1, s.video_path)
         fit_table_height(self.history_table)
         self.history_table.setVisible(bool(sessions))
         self.history_empty.setVisible(not sessions)
